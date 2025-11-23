@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Calendar } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus } from '../types';
-import { DIRECTIONS, OPTION_TYPES, EMOTIONS } from '../constants';
+import { DIRECTIONS, OPTION_TYPES, EMOTIONS, POPULAR_TICKERS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
 
 interface TradeJournalProps {
@@ -504,6 +504,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
   const [showGuard, setShowGuard] = useState(false);
   const [checklistResult, setChecklistResult] = useState<{checks: DisciplineChecklist, score: number} | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+  const [showTickerSuggestions, setShowTickerSuggestions] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState<Partial<Trade>>({
@@ -562,6 +563,10 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
     setChecklistResult(null);
   };
 
+  const tickerSuggestions = POPULAR_TICKERS.filter(t => 
+    formData.ticker && t.startsWith(formData.ticker.toUpperCase()) && t !== formData.ticker
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -600,16 +605,38 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
           </div>
           
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div>
+            <div className="relative">
               <label className="mb-2 block text-xs text-zinc-400">Ticker</label>
               <input 
                 required
                 type="text" 
                 value={formData.ticker}
-                onChange={e => setFormData({...formData, ticker: e.target.value})}
+                onChange={e => {
+                  setFormData({...formData, ticker: e.target.value.toUpperCase()});
+                  setShowTickerSuggestions(true);
+                }}
+                onFocus={() => setShowTickerSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowTickerSuggestions(false), 200)}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
                 placeholder="e.g. SPY"
               />
+              {showTickerSuggestions && tickerSuggestions.length > 0 && (
+                <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
+                  {tickerSuggestions.map(t => (
+                      <div 
+                        key={t}
+                        onClick={() => {
+                          setFormData({...formData, ticker: t});
+                          setShowTickerSuggestions(false);
+                        }}
+                        className="cursor-pointer px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors"
+                      >
+                        {t}
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
             </div>
 
             <div>

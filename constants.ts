@@ -4,6 +4,19 @@ export const DIRECTIONS = Object.values(TradeDirection);
 export const OPTION_TYPES = Object.values(OptionType);
 export const EMOTIONS = Object.values(Emotion);
 
+export const POPULAR_TICKERS = [
+  'SPY', 'QQQ', 'IWM', 'DIA', 'GLD', 'SLV', 'TLT', 'HYG', 'VXX',
+  'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NFLX',
+  'AMD', 'INTC', 'MU', 'AVGO', 'TSM', 'ARM', 'SMCI', 'PLTR',
+  'COIN', 'MSTR', 'MARA', 'RIOT', 'HOOD',
+  'JPM', 'BAC', 'C', 'WFC', 'GS', 'MS',
+  'XOM', 'CVX', 'OXY',
+  'LLY', 'UNH', 'JNJ', 'PFE', 'MRK',
+  'BA', 'CAT', 'DE',
+  'GME', 'AMC', 'RIVN', 'LCID',
+  'BABA', 'JD', 'PDD'
+].sort();
+
 export const INITIAL_TRADES: Trade[] = [
   {
     id: '1',
