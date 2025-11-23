@@ -1,0 +1,421 @@
+import React, { useState } from 'react';
+import { 
+  RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain 
+} from 'lucide-react';
+import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist } from '../types';
+
+interface SettingsProps {
+  currentBalance: number;
+  initialCapital: number;
+  tradeCount: number;
+  startDate: string;
+  archives: ArchivedSession[];
+  onReset: (newCapital: number) => void;
+}
+
+const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
+  { key: 'strategyMatch', label: 'In Strategy Plan' },
+  { key: 'riskDefined', label: 'Risk Defined' },
+  { key: 'sizeWithinLimits', label: 'Size Within Limits' },
+  { key: 'ivConditionsMet', label: 'IV Conditions Met' },
+  { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
+];
+
+const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({ trade, onClose }) => {
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl scrollbar-thin scrollbar-thumb-zinc-700 relative"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-zinc-800 bg-zinc-900/95 px-6 py-6 backdrop-blur-sm">
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-3xl font-bold text-white">{trade.ticker}</h2>
+              <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
+                {trade.status}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-3 text-sm text-zinc-400">
+              <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300">{trade.strategy}</span>
+              <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(trade.entryDate).toLocaleDateString()}</span>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-8">
+          {/* Read-Only View */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+              <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><DollarSign className="h-3 w-3" /> P&L</p>
+              <p className={`text-xl font-mono font-bold ${
+                (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+              }`}>
+                {trade.pnl ? `$${trade.pnl.toFixed(2)}` : '---'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+              <p className="text-xs text-zinc-500 mb-1">Entry Price</p>
+              <p className="text-xl font-mono font-bold text-zinc-200">${trade.entryPrice.toFixed(2)}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+              <p className="text-xs text-zinc-500 mb-1">Exit Price</p>
+              <p className="text-xl font-mono font-bold text-zinc-200">
+                {trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '---'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+              <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Hash className="h-3 w-3" /> Quantity</p>
+              <p className="text-xl font-mono font-bold text-zinc-200">{trade.quantity}</p>
+            </div>
+          </div>
+
+          {/* Notes Section */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+              <Activity className="h-4 w-4 text-indigo-400" /> 
+              Trade Logic & Notes
+            </h3>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">
+              {trade.notes || "No notes recorded for this trade."}
+            </p>
+          </div>
+
+          {/* Discipline & Psychology Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Discipline Score Card */}
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                  <Check className="h-4 w-4 text-emerald-400" /> 
+                  Entry Checklist
+                </h3>
+                <div className={`flex items-center gap-1 text-sm font-bold ${
+                  trade.disciplineScore === 100 ? 'text-emerald-400' : trade.disciplineScore > 50 ? 'text-amber-400' : 'text-rose-400'
+                }`}>
+                  <span>{trade.disciplineScore}%</span>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {checklistItems.map((item) => (
+                  <div key={item.key} className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-400">{item.label}</span>
+                    {trade.checklist[item.key] ? (
+                      <Check className="h-4 w-4 text-emerald-500" />
+                    ) : (
+                      <X className="h-4 w-4 text-rose-500" />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {trade.violationReason && (
+                <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3">
+                   <div className="flex items-start gap-2 text-xs text-rose-400">
+                     <AlertTriangle className="h-4 w-4 shrink-0" />
+                     <p>{trade.violationReason}</p>
+                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Psychology Card */}
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+              <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                <Brain className="h-4 w-4 text-purple-400" /> 
+                Psychology
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-zinc-500 mb-1">Entry State</p>
+                  <div className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-sm text-zinc-300">
+                    {trade.entryEmotion}
+                  </div>
+                </div>
+                
+                {trade.exitEmotion && (
+                   <div>
+                    <p className="text-xs text-zinc-500 mb-1">Exit State</p>
+                    <div className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-sm text-zinc-300">
+                      {trade.exitEmotion}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Settings: React.FC<SettingsProps> = ({ 
+  currentBalance, 
+  initialCapital, 
+  tradeCount, 
+  startDate,
+  archives, 
+  onReset 
+}) => {
+  const [newCapital, setNewCapital] = useState<string>(initialCapital.toString());
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [viewingArchive, setViewingArchive] = useState<ArchivedSession | null>(null);
+  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+
+  const handleReset = () => {
+    onReset(parseFloat(newCapital) || 0);
+    setShowConfirm(false);
+  };
+
+  if (viewingArchive) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in slide-in-from-right-4">
+        {selectedTrade && (
+          <HistoricalTradeModal trade={selectedTrade} onClose={() => setSelectedTrade(null)} />
+        )}
+
+        <div className="flex items-center gap-4 mb-4">
+          <button 
+            onClick={() => setViewingArchive(null)}
+            className="rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <div>
+            <h2 className="text-xl font-bold text-white">Session History</h2>
+            <p className="text-sm text-zinc-400">
+              {new Date(viewingArchive.startDate).toLocaleDateString()} — {new Date(viewingArchive.endDate).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+
+        {/* Summary Stats for Archive */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
+            <p className="text-xs text-zinc-500 mb-1">Initial Capital</p>
+            <p className="text-lg font-mono font-bold text-zinc-200">${viewingArchive.initialCapital.toLocaleString()}</p>
+          </div>
+           <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
+            <p className="text-xs text-zinc-500 mb-1">Final Balance</p>
+            <p className="text-lg font-mono font-bold text-zinc-200">${viewingArchive.finalBalance.toLocaleString()}</p>
+          </div>
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
+            <p className="text-xs text-zinc-500 mb-1">Total Trades</p>
+            <p className="text-lg font-mono font-bold text-zinc-200">{viewingArchive.tradeCount}</p>
+          </div>
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
+            <p className="text-xs text-zinc-500 mb-1">Net P&L</p>
+             <p className={`text-lg font-mono font-bold ${viewingArchive.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {viewingArchive.totalPnL > 0 ? '+' : ''}${viewingArchive.totalPnL.toLocaleString()}
+              </p>
+          </div>
+        </div>
+
+        {/* Historical Trades List */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+           <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
+              <tr>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4">Ticker</th>
+                <th className="px-6 py-4">Strategy</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">P&L</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {viewingArchive.trades.map((trade) => (
+                <tr 
+                  key={trade.id} 
+                  onClick={() => setSelectedTrade(trade)}
+                  className="cursor-pointer hover:bg-zinc-800/50 transition-colors group"
+                >
+                  <td className="px-6 py-4 text-zinc-400 group-hover:text-zinc-300">
+                    {new Date(trade.entryDate).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 font-bold text-white">{trade.ticker}</td>
+                  <td className="px-6 py-4 text-zinc-300">
+                    <span className="inline-block rounded-full bg-zinc-800 px-2 py-1 text-xs border border-zinc-700">{trade.strategy}</span>
+                  </td>
+                   <td className="px-6 py-4">
+                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
+                      {trade.status}
+                    </span>
+                  </td>
+                  <td className={`px-6 py-4 text-right font-mono font-medium ${
+                    (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-500'
+                  }`}>
+                    {trade.pnl ? `$${trade.pnl.toFixed(2)}` : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+           </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 max-w-4xl mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <Wallet className="h-6 w-6 text-indigo-400" />
+        <h2 className="text-xl font-bold text-white">Account Settings</h2>
+      </div>
+
+      {/* Current Session Manager */}
+      <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Active Journal Session</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+            <p className="text-xs text-zinc-400 mb-1">Started On</p>
+            <p className="text-sm font-mono text-zinc-200">{new Date(startDate).toLocaleDateString()}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+            <p className="text-xs text-zinc-400 mb-1">Total Trades</p>
+            <p className="text-sm font-mono text-zinc-200">{tradeCount}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+            <p className="text-xs text-zinc-400 mb-1">Current Balance</p>
+            <p className={`text-sm font-mono font-bold ${currentBalance >= initialCapital ? 'text-emerald-400' : 'text-rose-400'}`}>
+              ${currentBalance.toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        <div className="border-t border-zinc-800 pt-6">
+          <h4 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" /> Reset Journal & Account
+          </h4>
+          <p className="text-sm text-zinc-400 mb-6 max-w-2xl">
+            This will archive all current trades into history and start a fresh journal with a new initial capital. 
+            Use this when starting a new trading month, year, or challenge account.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-end gap-4">
+            <div className="w-full sm:w-64">
+              <label className="block text-xs text-zinc-500 mb-2">New Starting Balance</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
+                <input 
+                  type="number" 
+                  value={newCapital}
+                  onChange={(e) => setNewCapital(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                  placeholder="e.g. 10000"
+                />
+              </div>
+            </div>
+            
+            {!showConfirm ? (
+              <button 
+                onClick={() => setShowConfirm(true)}
+                className="w-full sm:w-auto px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors border border-zinc-700"
+              >
+                Reset Account
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-4">
+                 <button 
+                  onClick={() => setShowConfirm(false)}
+                  className="px-4 py-2 text-zinc-400 hover:text-white text-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleReset}
+                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-medium shadow-lg shadow-rose-900/20"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  Confirm Reset
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* History / Archives */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-zinc-400 px-1">
+          <History className="h-5 w-5" />
+          <h3 className="text-lg font-semibold text-white">Historical Logs</h3>
+        </div>
+
+        {archives.length === 0 ? (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center text-zinc-500">
+            <p>No archived sessions yet.</p>
+            <p className="text-xs mt-1">Resetting your account will save the current journal here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {archives.map((session) => (
+              <div 
+                key={session.id} 
+                onClick={() => setViewingArchive(session)}
+                className="group cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-all hover:border-zinc-700 hover:bg-zinc-800/50"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 transition-colors">
+                      <Calendar className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-zinc-200 group-hover:text-white">
+                        {new Date(session.startDate).toLocaleDateString()} — {new Date(session.endDate).toLocaleDateString()}
+                      </h4>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        {session.tradeCount} trades logged
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6 md:gap-12 pl-14 md:pl-0">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Starting Balance</p>
+                      <p className="font-mono text-zinc-400">${session.initialCapital.toLocaleString()}</p>
+                    </div>
+                    
+                    <ArrowRight className="h-4 w-4 text-zinc-600 hidden md:block" />
+
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Final Balance</p>
+                      <p className={`font-mono font-bold ${session.finalBalance >= session.initialCapital ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        ${session.finalBalance.toLocaleString()}
+                      </p>
+                    </div>
+
+                     <div className="text-right min-w-[80px]">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Net P&L</p>
+                      <p className={`font-mono font-bold ${session.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {session.totalPnL > 0 ? '+' : ''}${session.totalPnL.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Settings;
