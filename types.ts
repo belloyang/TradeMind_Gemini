@@ -1,12 +1,11 @@
-export enum StrategyType {
-  LONG_CALL = 'Long Call',
-  LONG_PUT = 'Long Put',
-  COVERED_CALL = 'Covered Call',
-  CASH_SECURED_PUT = 'Cash Secured Put',
-  IRON_CONDOR = 'Iron Condor',
-  CREDIT_SPREAD = 'Credit Spread',
-  DEBIT_SPREAD = 'Debit Spread',
-  WHEEL = 'The Wheel',
+export enum TradeDirection {
+  LONG = 'Long',
+  SHORT = 'Short',
+}
+
+export enum OptionType {
+  CALL = 'Call',
+  PUT = 'Put',
 }
 
 export enum Emotion {
@@ -34,15 +33,16 @@ export interface DisciplineChecklist {
 export interface Trade {
   id: string;
   ticker: string;
-  strategy: StrategyType;
+  direction: TradeDirection;
+  optionType: OptionType;
   entryDate: string;
   expirationDate?: string;
   status: TradeStatus;
   entryPrice: number;
   exitPrice?: number;
+  strikePrice?: number;
   quantity: number;
   pnl?: number; // Realized P&L
-  fees: number;
   notes: string;
   
   // Psychology & Discipline

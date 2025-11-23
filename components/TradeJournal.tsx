@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw } from 'lucide-react';
-import { Trade, StrategyType, Emotion, DisciplineChecklist, TradeStatus } from '../types';
-import { STRATEGIES, EMOTIONS } from '../constants';
+import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Calendar } from 'lucide-react';
+import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus } from '../types';
+import { DIRECTIONS, OPTION_TYPES, EMOTIONS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
 
 interface TradeJournalProps {
@@ -9,6 +9,23 @@ interface TradeJournalProps {
   onAddTrade: (trade: Trade) => void;
   onUpdateTrade: (trade: Trade) => void;
 }
+
+// Formats trade into: SPY 510C 251118
+const formatContractName = (ticker: string, strike?: number, type?: string, dateStr?: string) => {
+  if (!strike || !type || !dateStr) return ticker;
+  
+  try {
+    const d = new Date(dateStr);
+    const yy = d.getFullYear().toString().slice(-2);
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+    const dd = d.getDate().toString().padStart(2, '0');
+    const typeChar = type.charAt(0).toUpperCase();
+    
+    return `${ticker} ${strike}${typeChar} ${yy}${mm}${dd}`;
+  } catch (e) {
+    return ticker;
+  }
+};
 
 const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate: (trade: Trade) => void }> = ({ trade, onClose, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -32,8 +49,9 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
     // Auto calculate PnL if closed and exit price exists
     let finalPnl = editForm.pnl;
     if (editForm.status === TradeStatus.CLOSED && editForm.exitPrice !== undefined && editForm.entryPrice !== undefined) {
-      // Assuming 100 multiplier for options, modify if needed for stocks
-      finalPnl = (editForm.exitPrice - editForm.entryPrice) * editForm.quantity * 100 - (editForm.fees || 0);
+      // Assuming 100 multiplier for options
+      const directionMultiplier = editForm.direction === TradeDirection.LONG ? 1 : -1;
+      finalPnl = (editForm.exitPrice - editForm.entryPrice) * editForm.quantity * 100 * directionMultiplier;
     } else if (editForm.status === TradeStatus.OPEN) {
       finalPnl = undefined;
     }
@@ -65,8 +83,9 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
     if (newStatus === TradeStatus.CLOSED) {
       const exitPrice = parseFloat(quickExitPrice);
       updatedTrade.exitPrice = exitPrice;
-      // Calculate PnL: (Exit - Entry) * Qty * 100 - Fees
-      updatedTrade.pnl = (exitPrice - trade.entryPrice) * trade.quantity * 100 - (trade.fees || 0);
+      // Calculate PnL: (Exit - Entry) * Qty * 100 * direction
+      const directionMultiplier = trade.direction === TradeDirection.LONG ? 1 : -1;
+      updatedTrade.pnl = (exitPrice - trade.entryPrice) * trade.quantity * 100 * directionMultiplier;
       updatedTrade.exitEmotion = trade.exitEmotion || Emotion.CALM; // Default if not set
     } else {
       // Re-opening: clear exit data
@@ -153,7 +172,9 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
                />
             ) : (
               <div className="flex items-center gap-3">
-                <h2 className="text-3xl font-bold text-white">{trade.ticker}</h2>
+                <h2 className="text-3xl font-bold text-white">
+                  {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+                </h2>
                 <button 
                   onClick={handleStatusClick}
                   className={`group relative flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all hover:ring-2 hover:ring-offset-1 hover:ring-offset-zinc-900 ${
@@ -170,7 +191,10 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
             )}
             
             <div className="mt-2 flex items-center gap-3 text-sm text-zinc-400">
-              <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300">{trade.strategy}</span>
+              <span className={`rounded px-2 py-0.5 text-zinc-900 font-bold ${trade.direction === TradeDirection.LONG ? 'bg-emerald-400' : 'bg-rose-400'}`}>
+                {trade.direction.toUpperCase()}
+              </span>
+              <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300">{trade.optionType}</span>
               <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(trade.entryDate).toLocaleDateString()}</span>
             </div>
           </div>
@@ -212,14 +236,24 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
           <form onSubmit={handleSave} className="p-6 space-y-6">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="mb-2 block text-xs text-zinc-400">Strategy</label>
-                  <select 
-                    value={editForm.strategy}
-                    onChange={e => setEditForm({...editForm, strategy: e.target.value as StrategyType})}
+                   <label className="mb-2 block text-xs text-zinc-400">Direction</label>
+                   <select 
+                    value={editForm.direction}
+                    onChange={e => setEditForm({...editForm, direction: e.target.value as TradeDirection})}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                  >
-                    {STRATEGIES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                   >
+                     {DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                   </select>
+                </div>
+                <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Option Type</label>
+                   <select 
+                    value={editForm.optionType}
+                    onChange={e => setEditForm({...editForm, optionType: e.target.value as OptionType})}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   >
+                     {OPTION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+                   </select>
                 </div>
                 <div>
                   <label className="mb-2 block text-xs text-zinc-400">Entry Date</label>
@@ -249,6 +283,24 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
                    />
                 </div>
                 <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Strike Price</label>
+                   <input 
+                     type="number" step="0.5"
+                     value={editForm.strikePrice || ''}
+                     onChange={e => setEditForm({...editForm, strikePrice: parseFloat(e.target.value)})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   />
+                </div>
+                 <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Expiration Date</label>
+                   <input 
+                     type="date"
+                     value={editForm.expirationDate || ''}
+                     onChange={e => setEditForm({...editForm, expirationDate: e.target.value})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   />
+                </div>
+                <div>
                   <label className="mb-2 block text-xs text-zinc-400">Status</label>
                   <select 
                     value={editForm.status}
@@ -258,15 +310,6 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
                     <option value={TradeStatus.OPEN}>Open</option>
                     <option value={TradeStatus.CLOSED}>Closed</option>
                   </select>
-                </div>
-                <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Fees</label>
-                   <input 
-                     type="number" step="0.01"
-                     value={editForm.fees}
-                     onChange={e => setEditForm({...editForm, fees: parseFloat(e.target.value)})}
-                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                   />
                 </div>
              </div>
 
@@ -350,6 +393,19 @@ const TradeDetailsModal: React.FC<{ trade: Trade; onClose: () => void; onUpdate:
               <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
                 <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Hash className="h-3 w-3" /> Quantity</p>
                 <p className="text-xl font-mono font-bold text-zinc-200">{trade.quantity}</p>
+              </div>
+              
+              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                 <p className="text-xs text-zinc-500 mb-1">Strike Price</p>
+                 <p className="text-lg font-mono font-bold text-zinc-200">
+                   {trade.strikePrice ? `$${trade.strikePrice}` : '---'}
+                 </p>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                 <p className="text-xs text-zinc-500 mb-1">Expiration</p>
+                 <p className="text-lg font-mono font-bold text-zinc-200">
+                   {trade.expirationDate ? new Date(trade.expirationDate).toLocaleDateString() : '---'}
+                 </p>
               </div>
             </div>
 
@@ -452,10 +508,10 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
   // Form State
   const [formData, setFormData] = useState<Partial<Trade>>({
     ticker: '',
-    strategy: StrategyType.LONG_CALL,
+    direction: TradeDirection.LONG,
+    optionType: OptionType.CALL,
     entryDate: new Date().toISOString().slice(0, 16),
     quantity: 1,
-    fees: 0,
     notes: '',
     entryEmotion: Emotion.CALM,
     status: TradeStatus.OPEN,
@@ -474,20 +530,25 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!checklistResult) return;
+    
+    const directionMultiplier = formData.direction === TradeDirection.LONG ? 1 : -1;
+    const calcPnL = formData.status === TradeStatus.CLOSED && formData.exitPrice 
+      ? (Number(formData.exitPrice) - Number(formData.entryPrice)) * Number(formData.quantity) * 100 * directionMultiplier
+      : undefined;
 
     const newTrade: Trade = {
       id: Date.now().toString(),
       ticker: formData.ticker!.toUpperCase(),
-      strategy: formData.strategy!,
+      direction: formData.direction!,
+      optionType: formData.optionType!,
       entryDate: formData.entryDate!,
+      expirationDate: formData.expirationDate,
       status: formData.status!,
       entryPrice: Number(formData.entryPrice),
       exitPrice: formData.exitPrice ? Number(formData.exitPrice) : undefined,
+      strikePrice: formData.strikePrice ? Number(formData.strikePrice) : undefined,
       quantity: Number(formData.quantity),
-      pnl: formData.status === TradeStatus.CLOSED && formData.exitPrice 
-            ? (Number(formData.exitPrice) - Number(formData.entryPrice)) * Number(formData.quantity) * 100 - (Number(formData.fees) || 0)
-            : undefined,
-      fees: Number(formData.fees),
+      pnl: calcPnL,
       notes: formData.notes || '',
       entryEmotion: formData.entryEmotion!,
       checklist: checklistResult.checks,
@@ -497,7 +558,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
 
     onAddTrade(newTrade);
     setIsAdding(false);
-    setFormData({ ...formData, ticker: '', notes: '' }); // Reset simple fields
+    setFormData({ ...formData, ticker: '', notes: '', strikePrice: undefined, expirationDate: undefined }); 
     setChecklistResult(null);
   };
 
@@ -552,13 +613,24 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
             </div>
 
             <div>
-               <label className="mb-2 block text-xs text-zinc-400">Strategy</label>
+               <label className="mb-2 block text-xs text-zinc-400">Direction</label>
                <select 
-                value={formData.strategy}
-                onChange={e => setFormData({...formData, strategy: e.target.value as StrategyType})}
+                value={formData.direction}
+                onChange={e => setFormData({...formData, direction: e.target.value as TradeDirection})}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
                >
-                 {STRATEGIES.map(s => <option key={s} value={s}>{s}</option>)}
+                 {DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+               </select>
+            </div>
+
+             <div>
+               <label className="mb-2 block text-xs text-zinc-400">Option Type</label>
+               <select 
+                value={formData.optionType}
+                onChange={e => setFormData({...formData, optionType: e.target.value as OptionType})}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+               >
+                 {OPTION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
                </select>
             </div>
 
@@ -571,10 +643,20 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
+            
+            <div>
+               <label className="mb-2 block text-xs text-zinc-400">Strike Price</label>
+               <input 
+                 type="number" step="0.5"
+                 value={formData.strikePrice || ''}
+                 onChange={e => setFormData({...formData, strikePrice: parseFloat(e.target.value)})}
+                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+               />
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-2 block text-xs text-zinc-400">Price</label>
+                <label className="mb-2 block text-xs text-zinc-400">Entry Price</label>
                 <input 
                   required
                   type="number" 
@@ -594,6 +676,16 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
+            </div>
+
+            <div>
+               <label className="mb-2 block text-xs text-zinc-400">Expiration Date</label>
+               <input 
+                 type="date"
+                 value={formData.expirationDate || ''}
+                 onChange={e => setFormData({...formData, expirationDate: e.target.value})}
+                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+               />
             </div>
 
             <div>
@@ -658,8 +750,8 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
           <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
             <tr>
               <th className="px-6 py-4">Date</th>
-              <th className="px-6 py-4">Ticker</th>
-              <th className="px-6 py-4">Strategy</th>
+              <th className="px-6 py-4">Contract / Ticker</th>
+              <th className="px-6 py-4">Side</th>
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4">Disc. Score</th>
               <th className="px-6 py-4 text-right">P&L</th>
@@ -680,9 +772,13 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, onAddTrade, onUpdat
                   <td className="px-6 py-4 text-zinc-400 group-hover:text-zinc-300">
                     {new Date(trade.entryDate).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 font-bold text-white">{trade.ticker}</td>
+                  <td className="px-6 py-4 font-bold text-white">
+                     {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+                  </td>
                   <td className="px-6 py-4 text-zinc-300">
-                    <span className="inline-block rounded-full bg-zinc-800 px-2 py-1 text-xs border border-zinc-700">{trade.strategy}</span>
+                    <span className={`inline-block rounded px-2 py-1 text-xs font-bold ${trade.direction === TradeDirection.LONG ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {trade.direction.toUpperCase()}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>

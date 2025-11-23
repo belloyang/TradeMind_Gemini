@@ -17,7 +17,7 @@ export const getTradingCoaching = async (trades: Trade[]): Promise<string> => {
   const recentTrades = trades.slice(0, 10);
   const tradeSummary = JSON.stringify(recentTrades.map(t => ({
     ticker: t.ticker,
-    strategy: t.strategy,
+    type: `${t.direction} ${t.optionType}`,
     pnl: t.pnl,
     emotion: t.entryEmotion,
     discipline: t.disciplineScore,

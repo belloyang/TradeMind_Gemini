@@ -45,7 +45,8 @@ const Dashboard: React.FC<DashboardProps> = ({ trades, metrics, initialCapital }
     const stats: Record<string, number> = {};
     trades.forEach(t => {
       if (t.pnl) {
-        stats[t.strategy] = (stats[t.strategy] || 0) + t.pnl;
+        const key = `${t.direction} ${t.optionType}`;
+        stats[key] = (stats[key] || 0) + t.pnl;
       }
     });
     return Object.keys(stats).map(key => ({ name: key, value: stats[key] }));
@@ -59,7 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades, metrics, initialCapital }
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         
-        {/* Account Balance Card (New) */}
+        {/* Account Balance Card */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm relative overflow-hidden group">
           <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-indigo-500 to-indigo-600 opacity-50"></div>
           <div className="flex items-center gap-3 text-indigo-400 mb-2">

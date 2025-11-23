@@ -22,6 +22,23 @@ const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
   { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
 ];
 
+// Helper function to format contract names (Duplicated from TradeJournal for simplicity in archives)
+const formatContractName = (ticker: string, strike?: number, type?: string, dateStr?: string) => {
+  if (!strike || !type || !dateStr) return ticker;
+  
+  try {
+    const d = new Date(dateStr);
+    const yy = d.getFullYear().toString().slice(-2);
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+    const dd = d.getDate().toString().padStart(2, '0');
+    const typeChar = type.charAt(0).toUpperCase();
+    
+    return `${ticker} ${strike}${typeChar} ${yy}${mm}${dd}`;
+  } catch (e) {
+    return ticker;
+  }
+};
+
 const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({ trade, onClose }) => {
   return (
     <div 
@@ -36,13 +53,18 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-zinc-800 bg-zinc-900/95 px-6 py-6 backdrop-blur-sm">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-bold text-white">{trade.ticker}</h2>
+              <h2 className="text-3xl font-bold text-white">
+                 {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+              </h2>
               <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
                 {trade.status}
               </span>
             </div>
             <div className="mt-2 flex items-center gap-3 text-sm text-zinc-400">
-              <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300">{trade.strategy}</span>
+               <span className={`rounded px-2 py-0.5 text-zinc-900 font-bold ${trade.direction === 'Long' ? 'bg-emerald-400' : 'bg-rose-400'}`}>
+                {trade.direction.toUpperCase()}
+              </span>
+              <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300">{trade.optionType}</span>
               <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(trade.entryDate).toLocaleDateString()}</span>
             </div>
           </div>
@@ -78,6 +100,19 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
             <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
               <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Hash className="h-3 w-3" /> Quantity</p>
               <p className="text-xl font-mono font-bold text-zinc-200">{trade.quantity}</p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                <p className="text-xs text-zinc-500 mb-1">Strike Price</p>
+                <p className="text-lg font-mono font-bold text-zinc-200">
+                  {trade.strikePrice ? `$${trade.strikePrice}` : '---'}
+                </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                <p className="text-xs text-zinc-500 mb-1">Expiration</p>
+                <p className="text-lg font-mono font-bold text-zinc-200">
+                  {trade.expirationDate ? new Date(trade.expirationDate).toLocaleDateString() : '---'}
+                </p>
             </div>
           </div>
 
@@ -232,8 +267,8 @@ const Settings: React.FC<SettingsProps> = ({
             <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
               <tr>
                 <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Ticker</th>
-                <th className="px-6 py-4">Strategy</th>
+                <th className="px-6 py-4">Contract / Ticker</th>
+                <th className="px-6 py-4">Side</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">P&L</th>
               </tr>
@@ -248,9 +283,13 @@ const Settings: React.FC<SettingsProps> = ({
                   <td className="px-6 py-4 text-zinc-400 group-hover:text-zinc-300">
                     {new Date(trade.entryDate).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 font-bold text-white">{trade.ticker}</td>
+                  <td className="px-6 py-4 font-bold text-white">
+                    {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+                  </td>
                   <td className="px-6 py-4 text-zinc-300">
-                    <span className="inline-block rounded-full bg-zinc-800 px-2 py-1 text-xs border border-zinc-700">{trade.strategy}</span>
+                    <span className={`inline-block rounded px-2 py-1 text-xs font-bold ${trade.direction === 'Long' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {trade.direction.toUpperCase()}
+                    </span>
                   </td>
                    <td className="px-6 py-4">
                     <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
