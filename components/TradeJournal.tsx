@@ -494,6 +494,7 @@ const TradeDetailsModal: React.FC<{
                 <div>
                    <label className="mb-2 block text-xs text-zinc-400">Strike Price</label>
                    <input 
+                     required
                      type="number" step="0.5"
                      value={editForm.strikePrice || ''}
                      onChange={e => setEditForm({...editForm, strikePrice: parseFloat(e.target.value)})}
@@ -503,6 +504,7 @@ const TradeDetailsModal: React.FC<{
                  <div>
                    <label className="mb-2 block text-xs text-zinc-400">Expiration Date</label>
                    <input 
+                     required
                      type="date"
                      value={editForm.expirationDate || ''}
                      onChange={e => setEditForm({...editForm, expirationDate: e.target.value})}
@@ -728,6 +730,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [showDisciplineGuard, setShowDisciplineGuard] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // New Trade Form State
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
@@ -780,6 +783,18 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
 
   const handleInitialSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    // Validate Entry Date
+    if (newTrade.entryDate) {
+      const entryDate = new Date(newTrade.entryDate);
+      const now = new Date();
+      if (entryDate > now) {
+        setError("Future entry dates are not allowed. Please check the date and time.");
+        return;
+      }
+    }
+
     setShowDisciplineGuard(true);
   };
 
@@ -807,6 +822,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
     onAddTrade(trade);
     setShowDisciplineGuard(false);
     setIsAddModalOpen(false);
+    setError(null);
     // Reset form
     setNewTrade({
       direction: TradeDirection.LONG,
@@ -823,7 +839,10 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
        <div className="mb-6 flex items-center justify-between">
          <h2 className="text-lg font-semibold text-white">Recent Trade Log</h2>
          <button 
-           onClick={() => setIsAddModalOpen(true)}
+           onClick={() => {
+             setIsAddModalOpen(true);
+             setError(null);
+           }}
            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/20"
          >
            <Plus className="h-4 w-4" />
@@ -927,6 +946,13 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
                       </p>
                     </div>
                  </div>
+              )}
+              
+              {error && (
+                <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 flex items-start gap-2 text-rose-400">
+                  <AlertTriangle className="h-5 w-5 shrink-0" />
+                  <p className="text-sm">{error}</p>
+                </div>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1043,8 +1069,9 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
                 </div>
 
                 <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Strike Price (Optional)</label>
+                   <label className="mb-2 block text-xs text-zinc-400">Strike Price</label>
                    <input 
+                     required
                      type="number" step="0.5"
                      value={newTrade.strikePrice || ''}
                      onChange={e => setNewTrade({...newTrade, strikePrice: parseFloat(e.target.value)})}
@@ -1052,8 +1079,9 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
                    />
                 </div>
                  <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Expiration (Optional)</label>
+                   <label className="mb-2 block text-xs text-zinc-400">Expiration Date</label>
                    <input 
+                     required
                      type="date"
                      value={newTrade.expirationDate || ''}
                      onChange={e => setNewTrade({...newTrade, expirationDate: e.target.value})}
