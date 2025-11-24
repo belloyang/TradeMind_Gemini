@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
-  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain 
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert
 } from 'lucide-react';
-import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist } from '../types';
+import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings } from '../types';
 
 interface SettingsProps {
   currentBalance: number;
@@ -11,6 +11,8 @@ interface SettingsProps {
   tradeCount: number;
   startDate: string;
   archives: ArchivedSession[];
+  userSettings: UserSettings;
+  onUpdateSettings: (settings: UserSettings) => void;
   onReset: (newCapital: number) => void;
 }
 
@@ -22,17 +24,14 @@ const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
   { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
 ];
 
-// Helper function to format contract names (Duplicated from TradeJournal for simplicity in archives)
 const formatContractName = (ticker: string, strike?: number, type?: string, dateStr?: string) => {
   if (!strike || !type || !dateStr) return ticker;
-  
   try {
     const d = new Date(dateStr);
     const yy = d.getFullYear().toString().slice(-2);
     const mm = (d.getMonth() + 1).toString().padStart(2, '0');
     const dd = d.getDate().toString().padStart(2, '0');
     const typeChar = type.charAt(0).toUpperCase();
-    
     return `${ticker} ${strike}${typeChar} ${yy}${mm}${dd}`;
   } catch (e) {
     return ticker;
@@ -49,7 +48,6 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
         className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl scrollbar-thin scrollbar-thumb-zinc-700 relative"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-zinc-800 bg-zinc-900/95 px-6 py-6 backdrop-blur-sm">
           <div>
             <div className="flex items-center gap-3">
@@ -77,7 +75,6 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
         </div>
 
         <div className="p-6 space-y-8">
-          {/* Read-Only View */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
               <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><DollarSign className="h-3 w-3" /> P&L</p>
@@ -101,22 +98,8 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
               <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Hash className="h-3 w-3" /> Quantity</p>
               <p className="text-xl font-mono font-bold text-zinc-200">{trade.quantity}</p>
             </div>
-
-            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                <p className="text-xs text-zinc-500 mb-1">Strike Price</p>
-                <p className="text-lg font-mono font-bold text-zinc-200">
-                  {trade.strikePrice ? `$${trade.strikePrice}` : '---'}
-                </p>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                <p className="text-xs text-zinc-500 mb-1">Expiration</p>
-                <p className="text-lg font-mono font-bold text-zinc-200">
-                  {trade.expirationDate ? new Date(trade.expirationDate).toLocaleDateString() : '---'}
-                </p>
-            </div>
           </div>
 
-          {/* Notes Section */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
               <Activity className="h-4 w-4 text-indigo-400" /> 
@@ -127,10 +110,7 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
             </p>
           </div>
 
-          {/* Discipline & Psychology Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Discipline Score Card */}
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
@@ -143,7 +123,6 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
                   <span>{trade.disciplineScore}%</span>
                 </div>
               </div>
-              
               <div className="space-y-3">
                 {checklistItems.map((item) => (
                   <div key={item.key} className="flex items-center justify-between text-sm">
@@ -156,7 +135,6 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
                   </div>
                 ))}
               </div>
-
               {trade.violationReason && (
                 <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3">
                    <div className="flex items-start gap-2 text-xs text-rose-400">
@@ -167,13 +145,11 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
               )}
             </div>
 
-            {/* Psychology Card */}
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
               <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-300">
                 <Brain className="h-4 w-4 text-purple-400" /> 
                 Psychology
               </h3>
-              
               <div className="space-y-4">
                 <div>
                   <p className="text-xs text-zinc-500 mb-1">Entry State</p>
@@ -181,7 +157,6 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
                     {trade.entryEmotion}
                   </div>
                 </div>
-                
                 {trade.exitEmotion && (
                    <div>
                     <p className="text-xs text-zinc-500 mb-1">Exit State</p>
@@ -205,6 +180,8 @@ const Settings: React.FC<SettingsProps> = ({
   tradeCount, 
   startDate,
   archives, 
+  userSettings,
+  onUpdateSettings,
   onReset 
 }) => {
   const [newCapital, setNewCapital] = useState<string>(initialCapital.toString());
@@ -223,7 +200,6 @@ const Settings: React.FC<SettingsProps> = ({
         {selectedTrade && (
           <HistoricalTradeModal trade={selectedTrade} onClose={() => setSelectedTrade(null)} />
         )}
-
         <div className="flex items-center gap-4 mb-4">
           <button 
             onClick={() => setViewingArchive(null)}
@@ -238,8 +214,6 @@ const Settings: React.FC<SettingsProps> = ({
             </p>
           </div>
         </div>
-
-        {/* Summary Stats for Archive */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
             <p className="text-xs text-zinc-500 mb-1">Initial Capital</p>
@@ -260,8 +234,6 @@ const Settings: React.FC<SettingsProps> = ({
               </p>
           </div>
         </div>
-
-        {/* Historical Trades List */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
            <table className="w-full text-left text-sm">
             <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
@@ -315,6 +287,44 @@ const Settings: React.FC<SettingsProps> = ({
       <div className="flex items-center gap-3 mb-6">
         <Wallet className="h-6 w-6 text-indigo-400" />
         <h2 className="text-xl font-bold text-white">Account Settings</h2>
+      </div>
+
+      {/* Risk Configuration */}
+      <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Risk Management Defaults</h3>
+        <p className="text-sm text-zinc-400 mb-6">
+          Set your default profit targets and stop losses. These are automatically calculated when you enter a trade but can be manually adjusted per trade.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-xs text-zinc-400 mb-2 flex items-center gap-2">
+              <Target className="h-3 w-3" /> Default Profit Target (%)
+            </label>
+            <div className="relative">
+              <input 
+                type="number"
+                value={userSettings.defaultTargetPercent}
+                onChange={(e) => onUpdateSettings({...userSettings, defaultTargetPercent: parseFloat(e.target.value)})}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-400 mb-2 flex items-center gap-2">
+              <ShieldAlert className="h-3 w-3" /> Default Stop Loss (%)
+            </label>
+            <div className="relative">
+              <input 
+                type="number"
+                value={userSettings.defaultStopLossPercent}
+                onChange={(e) => onUpdateSettings({...userSettings, defaultStopLossPercent: parseFloat(e.target.value)})}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Current Session Manager */}

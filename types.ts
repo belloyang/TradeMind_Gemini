@@ -42,6 +42,11 @@ export interface Trade {
   exitPrice?: number;
   strikePrice?: number;
   quantity: number;
+  
+  // Risk Management
+  targetPrice?: number;
+  stopLossPrice?: number;
+
   pnl?: number; // Realized P&L
   notes: string;
   
@@ -71,4 +76,9 @@ export interface ArchivedSession {
   totalPnL: number;
   tradeCount: number;
   trades: Trade[];
+}
+
+export interface UserSettings {
+  defaultTargetPercent: number;
+  defaultStopLossPercent: number;
 }

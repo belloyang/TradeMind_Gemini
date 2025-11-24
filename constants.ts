@@ -27,6 +27,8 @@ export const INITIAL_TRADES: Trade[] = [
     expirationDate: '2024-05-15',
     status: TradeStatus.CLOSED,
     entryPrice: 2.50,
+    targetPrice: 1.50, // Short: Target is lower
+    stopLossPrice: 3.00, // Short: Stop is higher
     exitPrice: 1.20,
     strikePrice: 510,
     quantity: 5,
@@ -51,6 +53,8 @@ export const INITIAL_TRADES: Trade[] = [
     expirationDate: '2024-06-21',
     status: TradeStatus.CLOSED,
     entryPrice: 15.00,
+    targetPrice: 21.00,
+    stopLossPrice: 12.00,
     exitPrice: 10.00,
     strikePrice: 900,
     quantity: 1,
@@ -76,6 +80,8 @@ export const INITIAL_TRADES: Trade[] = [
     expirationDate: '2024-05-24',
     status: TradeStatus.OPEN,
     entryPrice: 3.20,
+    targetPrice: 1.92,
+    stopLossPrice: 3.84,
     strikePrice: 170,
     quantity: 2,
     notes: 'Selling puts at support level.',

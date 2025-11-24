@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LayoutDashboard, BookOpen, Settings, BarChart2 } from 'lucide-react';
-import { Trade, Metrics, ArchivedSession } from './types';
+import { Trade, Metrics, ArchivedSession, UserSettings } from './types';
 import { INITIAL_TRADES } from './constants';
 import Dashboard from './components/Dashboard';
 import TradeJournal from './components/TradeJournal';
@@ -13,6 +13,12 @@ const App: React.FC = () => {
   const [initialCapital, setInitialCapital] = useState(10000);
   const [sessionStartDate, setSessionStartDate] = useState(new Date('2024-05-01').toISOString());
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'analytics' | 'settings'>('dashboard');
+  
+  // Global User Settings
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    defaultTargetPercent: 40,
+    defaultStopLossPercent: 20
+  });
   
   // Historical sessions
   const [archives, setArchives] = useState<ArchivedSession[]>([]);
@@ -56,6 +62,10 @@ const App: React.FC = () => {
 
   const handleUpdateTrade = (updatedTrade: Trade) => {
     setTrades(prev => prev.map(t => t.id === updatedTrade.id ? updatedTrade : t));
+  };
+
+  const handleDeleteTrade = (tradeId: string) => {
+    setTrades(prev => prev.filter(t => t.id !== tradeId));
   };
 
   const handleResetAccount = (newCapital: number) => {
@@ -119,8 +129,6 @@ const App: React.FC = () => {
             label="Settings" 
           />
         </nav>
-
-        {/* Mobile Menu Toggle would go here, kept simple for this demo */}
       </div>
 
       {/* Main Content */}
@@ -136,7 +144,7 @@ const App: React.FC = () => {
             </h1>
             <p className="text-sm text-zinc-400">
                {activeTab === 'settings' 
-                 ? "Manage your account balance and historical sessions." 
+                 ? "Manage account balance, risk defaults, and history." 
                  : <span>Welcome back. Your current discipline score is <span className={metrics.disciplineScore >= 80 ? 'text-emerald-400' : 'text-amber-400'}>{metrics.disciplineScore.toFixed(0)}%</span>.</span>}
             </p>
           </div>
@@ -156,8 +164,10 @@ const App: React.FC = () => {
           ) : activeTab === 'journal' ? (
             <TradeJournal 
               trades={trades} 
+              userSettings={userSettings}
               onAddTrade={handleAddTrade} 
               onUpdateTrade={handleUpdateTrade}
+              onDeleteTrade={handleDeleteTrade}
             />
           ) : activeTab === 'analytics' ? (
             <Analytics trades={trades} />
@@ -168,6 +178,8 @@ const App: React.FC = () => {
               tradeCount={trades.length}
               startDate={sessionStartDate}
               archives={archives}
+              userSettings={userSettings}
+              onUpdateSettings={setUserSettings}
               onReset={handleResetAccount}
             />
           )}

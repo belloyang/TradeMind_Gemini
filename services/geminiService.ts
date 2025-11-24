@@ -49,3 +49,56 @@ export const getTradingCoaching = async (trades: Trade[]): Promise<string> => {
     return "I'm currently analyzing the markets (API Error). Try again later.";
   }
 };
+
+export const getPriceEstimate = async (trade: Trade): Promise<{ text: string; price?: number; sources?: {title: string, uri: string}[] }> => {
+  const client = getClient();
+  if (!client) return { text: "API Key configuration missing." };
+
+  const isOption = trade.strikePrice && trade.optionType && trade.expirationDate;
+  
+  let query = "";
+  if (isOption) {
+    query = `Current price of ${trade.ticker} ${trade.strikePrice} ${trade.optionType} expiring ${trade.expirationDate}`;
+  } else {
+    query = `Current stock price of ${trade.ticker}`;
+  }
+
+  const prompt = `
+    Search for the current market price for: "${query}".
+    
+    If it is an option contract, try to find the specific "Last Price" or "Premium". 
+    If exact option data is not found or is outdated, strictly return the current underlying stock price of ${trade.ticker} and explicitly state that it is the underlying price.
+
+    Output format:
+    "Price: $[number]"
+    "Summary: [Brief details about what was found (e.g. 'Option last price' or 'Underlying stock price')]"
+  `;
+
+  try {
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const text = response.text || "No results found.";
+    
+    // Simplistic price extraction from the AI's formatted response
+    const priceMatch = text.match(/Price:\s*\$([0-9,]+\.?[0-9]*)/i);
+    const price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : undefined;
+
+    // Extract sources from grounding metadata
+    // @ts-ignore - groundingMetadata types might be inferred differently depending on SDK version
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const sources = chunks
+      .map((c: any) => c.web)
+      .filter((w: any) => w && w.uri && w.title);
+
+    return { text, price, sources };
+  } catch (error) {
+    console.error("Search Error:", error);
+    return { text: "Unable to search market data at this time." };
+  }
+};
