@@ -867,7 +867,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
                 <div className="mb-4 flex items-center gap-4 text-sm">
                    <div>
                      <p className="text-[10px] text-zinc-500">Entry</p>
-                     <p className="font-mono text-zinc-300">${trade.entryPrice}</p>
+                     <p className="font-mono text-zinc-300">${trade.entryPrice.toFixed(2)}</p>
                    </div>
                    {trade.status === TradeStatus.CLOSED ? (
                       <div>
@@ -875,13 +875,13 @@ const TradeJournal: React.FC<TradeJournalProps> = ({
                         <p className={`font-mono font-bold ${
                            (trade.pnl || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'
                         }`}>
-                           {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl}` : '-'}
+                           {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toFixed(2)}` : '-'}
                         </p>
                       </div>
                    ) : (
                       <div>
                         <p className="text-[10px] text-zinc-500">Target</p>
-                        <p className="font-mono text-zinc-300">${trade.targetPrice || '-'}</p>
+                        <p className="font-mono text-zinc-300">${trade.targetPrice ? trade.targetPrice.toFixed(2) : '-'}</p>
                       </div>
                    )}
                 </div>

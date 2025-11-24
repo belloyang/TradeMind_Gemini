@@ -217,11 +217,11 @@ const Settings: React.FC<SettingsProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
             <p className="text-xs text-zinc-500 mb-1">Initial Capital</p>
-            <p className="text-lg font-mono font-bold text-zinc-200">${viewingArchive.initialCapital.toLocaleString()}</p>
+            <p className="text-lg font-mono font-bold text-zinc-200">${viewingArchive.initialCapital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
            <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
             <p className="text-xs text-zinc-500 mb-1">Final Balance</p>
-            <p className="text-lg font-mono font-bold text-zinc-200">${viewingArchive.finalBalance.toLocaleString()}</p>
+            <p className="text-lg font-mono font-bold text-zinc-200">${viewingArchive.finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
           <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
             <p className="text-xs text-zinc-500 mb-1">Total Trades</p>
@@ -230,7 +230,7 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50">
             <p className="text-xs text-zinc-500 mb-1">Net P&L</p>
              <p className={`text-lg font-mono font-bold ${viewingArchive.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {viewingArchive.totalPnL > 0 ? '+' : ''}${viewingArchive.totalPnL.toLocaleString()}
+                {viewingArchive.totalPnL > 0 ? '+' : ''}${viewingArchive.totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
           </div>
         </div>
@@ -271,7 +271,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <td className={`px-6 py-4 text-right font-mono font-medium ${
                     (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-500'
                   }`}>
-                    {trade.pnl ? `$${trade.pnl.toFixed(2)}` : '-'}
+                    {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toFixed(2)}` : '-'}
                   </td>
                 </tr>
               ))}
@@ -359,7 +359,7 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
             <p className="text-xs text-zinc-400 mb-1">Current Balance</p>
             <p className={`text-sm font-mono font-bold ${currentBalance >= initialCapital ? 'text-emerald-400' : 'text-rose-400'}`}>
-              ${currentBalance.toLocaleString()}
+              ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
         </div>
@@ -454,7 +454,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <div className="flex items-center gap-6 md:gap-12 pl-14 md:pl-0">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-zinc-500">Starting Balance</p>
-                      <p className="font-mono text-zinc-400">${session.initialCapital.toLocaleString()}</p>
+                      <p className="font-mono text-zinc-400">${session.initialCapital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     
                     <ArrowRight className="h-4 w-4 text-zinc-600 hidden md:block" />
@@ -462,14 +462,14 @@ const Settings: React.FC<SettingsProps> = ({
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-zinc-500">Final Balance</p>
                       <p className={`font-mono font-bold ${session.finalBalance >= session.initialCapital ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        ${session.finalBalance.toLocaleString()}
+                        ${session.finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
                      <div className="text-right min-w-[80px]">
                       <p className="text-[10px] uppercase tracking-wider text-zinc-500">Net P&L</p>
                       <p className={`font-mono font-bold ${session.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {session.totalPnL > 0 ? '+' : ''}${session.totalPnL.toLocaleString()}
+                        {session.totalPnL > 0 ? '+' : ''}${session.totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>

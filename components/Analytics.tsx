@@ -139,7 +139,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
               <span className={`text-xs font-semibold ${
                 data.pnl > 0 ? 'text-emerald-400' : data.pnl < 0 ? 'text-rose-400' : 'text-zinc-400'
               }`}>
-                {data.pnl > 0 ? '+' : ''}${data.pnl.toLocaleString()}
+                {data.pnl > 0 ? '+' : ''}${data.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
                 {data.count} trade{data.count !== 1 ? 's' : ''}
@@ -187,7 +187,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
               <span className="text-sm font-medium">Net P&L</span>
             </div>
             <span className={`text-2xl font-bold font-mono ${monthData.stats.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {monthData.stats.pnl >= 0 ? '+' : ''}${monthData.stats.pnl.toLocaleString()}
+              {monthData.stats.pnl >= 0 ? '+' : ''}${monthData.stats.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           
@@ -292,7 +292,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
                             <span className={`font-mono font-medium ${
                               (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
                             }`}>
-                              {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toLocaleString()}` : '---'}
+                              {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
                             </span>
                           </div>
                        </div>
@@ -308,7 +308,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
                    (selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0)) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                  }`}>
                    {(selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0)) >= 0 ? '+' : ''}
-                   ${selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0).toLocaleString()}
+                   ${selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                  </span>
                </p>
             </div>
