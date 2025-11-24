@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut } from 'lucide-react';
 import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
 import { INITIAL_TRADES } from './constants';
@@ -9,28 +9,48 @@ import AICoach from './components/AICoach';
 import SettingsPage from './components/Settings';
 import AuthScreen from './components/AuthScreen';
 
+const STORAGE_KEY = 'trademind_data_v1';
+
 const App: React.FC = () => {
   // --- User Management State ---
-  const [users, setUsers] = useState<UserProfile[]>([
-    {
-      id: 'demo-user',
-      name: 'Demo Trader',
-      trades: INITIAL_TRADES,
-      initialCapital: 10000,
-      startDate: new Date('2024-05-01').toISOString(),
-      archives: [],
-      settings: {
-        defaultTargetPercent: 40,
-        defaultStopLossPercent: 20,
-        maxTradesPerDay: 3
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (savedData) {
+        return JSON.parse(savedData);
       }
+    } catch (e) {
+      console.error("Failed to load from local storage", e);
     }
-  ]);
+    
+    // Default initial state if no storage found
+    return [
+      {
+        id: 'demo-user',
+        name: 'Demo Trader',
+        trades: INITIAL_TRADES,
+        initialCapital: 10000,
+        startDate: new Date('2024-05-01').toISOString(),
+        archives: [],
+        settings: {
+          defaultTargetPercent: 40,
+          defaultStopLossPercent: 20,
+          maxTradesPerDay: 3
+        }
+      }
+    ];
+  });
+
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
 
   // --- UI State ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'analytics' | 'settings'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // --- Persistence Effect ---
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+  }, [users]);
 
   // --- Derived Active User ---
   const activeUser = useMemo(() => 
@@ -88,11 +108,11 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const handleCreateUser = (name: string, initialCapital: number) => {
+  const handleCreateUser = (userData: { name: string; initialCapital: number; password?: string; securityQuestion?: string; securityAnswer?: string }) => {
     const newUser: UserProfile = {
       id: Date.now().toString(),
-      name,
-      initialCapital,
+      name: userData.name,
+      initialCapital: userData.initialCapital,
       startDate: new Date().toISOString(),
       trades: [],
       archives: [],
@@ -100,11 +120,18 @@ const App: React.FC = () => {
         defaultTargetPercent: 30,
         defaultStopLossPercent: 15,
         maxTradesPerDay: 5
-      }
+      },
+      password: userData.password,
+      securityQuestion: userData.securityQuestion,
+      securityAnswer: userData.securityAnswer
     };
     setUsers(prev => [...prev, newUser]);
     setActiveUserId(newUser.id);
     setActiveTab('dashboard');
+  };
+
+  const handleResetPassword = (userId: string, newPassword: string) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
   };
 
   const handleLogout = () => {
@@ -174,6 +201,7 @@ const App: React.FC = () => {
         users={users} 
         onLogin={handleLogin} 
         onCreateUser={handleCreateUser} 
+        onResetPassword={handleResetPassword}
       />
     );
   }

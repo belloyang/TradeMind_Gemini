@@ -93,4 +93,9 @@ export interface UserProfile {
   startDate: string;
   settings: UserSettings;
   archives: ArchivedSession[];
+  
+  // Security
+  password?: string;
+  securityQuestion?: string;
+  securityAnswer?: string;
 }
