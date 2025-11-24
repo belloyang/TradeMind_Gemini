@@ -84,3 +84,13 @@ export interface UserSettings {
   defaultStopLossPercent: number;
   maxTradesPerDay: number;
 }
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  trades: Trade[];
+  initialCapital: number;
+  startDate: string;
+  settings: UserSettings;
+  archives: ArchivedSession[];
+}

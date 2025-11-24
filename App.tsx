@@ -1,32 +1,55 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X } from 'lucide-react';
-import { Trade, Metrics, ArchivedSession, UserSettings } from './types';
+import React, { useState, useMemo } from 'react';
+import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut } from 'lucide-react';
+import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
 import { INITIAL_TRADES } from './constants';
 import Dashboard from './components/Dashboard';
 import TradeJournal from './components/TradeJournal';
 import Analytics from './components/Analytics';
 import AICoach from './components/AICoach';
 import SettingsPage from './components/Settings';
+import AuthScreen from './components/AuthScreen';
 
 const App: React.FC = () => {
-  const [trades, setTrades] = useState<Trade[]>(INITIAL_TRADES);
-  const [initialCapital, setInitialCapital] = useState(10000);
-  const [sessionStartDate, setSessionStartDate] = useState(new Date('2024-05-01').toISOString());
+  // --- User Management State ---
+  const [users, setUsers] = useState<UserProfile[]>([
+    {
+      id: 'demo-user',
+      name: 'Demo Trader',
+      trades: INITIAL_TRADES,
+      initialCapital: 10000,
+      startDate: new Date('2024-05-01').toISOString(),
+      archives: [],
+      settings: {
+        defaultTargetPercent: 40,
+        defaultStopLossPercent: 20,
+        maxTradesPerDay: 3
+      }
+    }
+  ]);
+  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+
+  // --- UI State ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'analytics' | 'settings'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Global User Settings
-  const [userSettings, setUserSettings] = useState<UserSettings>({
-    defaultTargetPercent: 40,
-    defaultStopLossPercent: 20,
-    maxTradesPerDay: 3
-  });
-  
-  // Historical sessions
-  const [archives, setArchives] = useState<ArchivedSession[]>([]);
 
-  // Calculate Metrics on the fly
+  // --- Derived Active User ---
+  const activeUser = useMemo(() => 
+    users.find(u => u.id === activeUserId) || null
+  , [users, activeUserId]);
+
+  // --- Helpers ---
+  const updateActiveUser = (updater: (user: UserProfile) => UserProfile) => {
+    if (!activeUserId) return;
+    setUsers(prev => prev.map(u => u.id === activeUserId ? updater(u) : u));
+  };
+
+  // --- Calculate Metrics ---
   const metrics: Metrics = useMemo(() => {
+    if (!activeUser) return {
+      totalTrades: 0, winRate: 0, totalPnL: 0, averagePnL: 0, disciplineScore: 0, maxDrawdown: 0
+    };
+
+    const trades = activeUser.trades;
     const closedTrades = trades.filter(t => t.pnl !== undefined);
     const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
     const winningTrades = closedTrades.filter(t => (t.pnl || 0) > 0).length;
@@ -56,38 +79,85 @@ const App: React.FC = () => {
       disciplineScore: trades.length > 0 ? totalDiscipline / trades.length : 0,
       maxDrawdown: maxDD
     };
-  }, [trades]);
+  }, [activeUser]);
+
+  // --- Handlers ---
+  
+  const handleLogin = (userId: string) => {
+    setActiveUserId(userId);
+    setActiveTab('dashboard');
+  };
+
+  const handleCreateUser = (name: string, initialCapital: number) => {
+    const newUser: UserProfile = {
+      id: Date.now().toString(),
+      name,
+      initialCapital,
+      startDate: new Date().toISOString(),
+      trades: [],
+      archives: [],
+      settings: {
+        defaultTargetPercent: 30,
+        defaultStopLossPercent: 15,
+        maxTradesPerDay: 5
+      }
+    };
+    setUsers(prev => [...prev, newUser]);
+    setActiveUserId(newUser.id);
+    setActiveTab('dashboard');
+  };
+
+  const handleLogout = () => {
+    setActiveUserId(null);
+    setIsMobileMenuOpen(false);
+  };
 
   const handleAddTrade = (newTrade: Trade) => {
-    setTrades(prev => [newTrade, ...prev]);
+    updateActiveUser(u => ({ ...u, trades: [newTrade, ...u.trades] }));
   };
 
   const handleUpdateTrade = (updatedTrade: Trade) => {
-    setTrades(prev => prev.map(t => t.id === updatedTrade.id ? updatedTrade : t));
+    updateActiveUser(u => ({
+      ...u,
+      trades: u.trades.map(t => t.id === updatedTrade.id ? updatedTrade : t)
+    }));
   };
 
   const handleDeleteTrade = (tradeId: string) => {
-    setTrades(prev => prev.filter(t => t.id !== tradeId));
+    updateActiveUser(u => ({
+      ...u,
+      trades: u.trades.filter(t => t.id !== tradeId)
+    }));
+  };
+
+  const handleUpdateSettings = (newSettings: UserSettings) => {
+    updateActiveUser(u => ({ ...u, settings: newSettings }));
   };
 
   const handleResetAccount = (newCapital: number) => {
+    if (!activeUser) return;
+
     // 1. Create Archive
     const newArchive: ArchivedSession = {
       id: Date.now().toString(),
-      startDate: sessionStartDate,
+      startDate: activeUser.startDate,
       endDate: new Date().toISOString(),
-      initialCapital: initialCapital,
-      finalBalance: initialCapital + metrics.totalPnL,
+      initialCapital: activeUser.initialCapital,
+      finalBalance: activeUser.initialCapital + metrics.totalPnL,
       totalPnL: metrics.totalPnL,
-      tradeCount: trades.length,
-      trades: [...trades] // deep copy recommended in production, shallow fine here
+      tradeCount: activeUser.trades.length,
+      trades: [...activeUser.trades]
     };
 
-    // 2. Update State
-    setArchives(prev => [newArchive, ...prev]);
-    setTrades([]);
-    setInitialCapital(newCapital);
-    setSessionStartDate(new Date().toISOString());
+    // 2. Update User Profile
+    updateActiveUser(u => ({
+      ...u,
+      archives: [newArchive, ...u.archives],
+      trades: [],
+      initialCapital: newCapital,
+      startDate: new Date().toISOString()
+    }));
+    
     setActiveTab('dashboard');
   };
 
@@ -95,6 +165,18 @@ const App: React.FC = () => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
+
+  // --- Render ---
+
+  if (!activeUser) {
+    return (
+      <AuthScreen 
+        users={users} 
+        onLogin={handleLogin} 
+        onCreateUser={handleCreateUser} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans selection:bg-indigo-500/30">
@@ -118,7 +200,7 @@ const App: React.FC = () => {
         </button>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex w-full flex-col gap-2">
+        <nav className="hidden md:flex w-full flex-col gap-2 h-full">
           <NavButton 
             active={activeTab === 'dashboard'} 
             onClick={() => setActiveTab('dashboard')} 
@@ -144,6 +226,25 @@ const App: React.FC = () => {
             icon={<Settings size={20} />} 
             label="Settings" 
           />
+
+          <div className="mt-auto pt-4 border-t border-zinc-800">
+             <div className="px-4 py-3 mb-2 flex items-center gap-3 rounded-lg bg-zinc-900/50">
+               <div className="h-8 w-8 rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
+                 {activeUser.name.charAt(0).toUpperCase()}
+               </div>
+               <div className="overflow-hidden">
+                 <p className="text-sm font-medium text-white truncate">{activeUser.name}</p>
+                 <p className="text-[10px] text-zinc-500 truncate">Pro Plan</p>
+               </div>
+             </div>
+             <button 
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-rose-400 transition-colors"
+             >
+                <LogOut size={20} />
+                Sign Out
+             </button>
+          </div>
         </nav>
       </div>
 
@@ -176,6 +277,13 @@ const App: React.FC = () => {
                 icon={<Settings size={20} />} 
                 label="Settings" 
               />
+              <button 
+                onClick={handleLogout}
+                className="mt-4 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-rose-400 bg-rose-500/10 border border-rose-500/20"
+             >
+                <LogOut size={20} />
+                Sign Out
+             </button>
            </nav>
         </div>
       )}
@@ -194,7 +302,7 @@ const App: React.FC = () => {
             <p className="text-sm text-zinc-400">
                {activeTab === 'settings' 
                  ? "Manage account balance, risk defaults, and history." 
-                 : <span>Welcome back. Your current discipline score is <span className={metrics.disciplineScore >= 80 ? 'text-emerald-400' : 'text-amber-400'}>{metrics.disciplineScore.toFixed(0)}%</span>.</span>}
+                 : <span>Welcome back, {activeUser.name}. Your current discipline score is <span className={metrics.disciplineScore >= 80 ? 'text-emerald-400' : 'text-amber-400'}>{metrics.disciplineScore.toFixed(0)}%</span>.</span>}
             </p>
           </div>
         </header>
@@ -202,33 +310,33 @@ const App: React.FC = () => {
         {/* AI Coach Widget (Visible on main tabs) */}
         {activeTab !== 'settings' && (
           <div className="mb-8">
-            <AICoach trades={trades} />
+            <AICoach trades={activeUser.trades} />
           </div>
         )}
 
         {/* Content Switcher */}
         <div className="animate-in fade-in duration-500">
           {activeTab === 'dashboard' ? (
-            <Dashboard trades={trades} metrics={metrics} initialCapital={initialCapital} />
+            <Dashboard trades={activeUser.trades} metrics={metrics} initialCapital={activeUser.initialCapital} />
           ) : activeTab === 'journal' ? (
             <TradeJournal 
-              trades={trades} 
-              userSettings={userSettings}
+              trades={activeUser.trades} 
+              userSettings={activeUser.settings}
               onAddTrade={handleAddTrade} 
               onUpdateTrade={handleUpdateTrade}
               onDeleteTrade={handleDeleteTrade}
             />
           ) : activeTab === 'analytics' ? (
-            <Analytics trades={trades} />
+            <Analytics trades={activeUser.trades} />
           ) : (
             <SettingsPage 
-              currentBalance={initialCapital + metrics.totalPnL}
-              initialCapital={initialCapital}
-              tradeCount={trades.length}
-              startDate={sessionStartDate}
-              archives={archives}
-              userSettings={userSettings}
-              onUpdateSettings={setUserSettings}
+              currentBalance={activeUser.initialCapital + metrics.totalPnL}
+              initialCapital={activeUser.initialCapital}
+              tradeCount={activeUser.trades.length}
+              startDate={activeUser.startDate}
+              archives={activeUser.archives}
+              userSettings={activeUser.settings}
+              onUpdateSettings={handleUpdateSettings}
               onReset={handleResetAccount}
             />
           )}

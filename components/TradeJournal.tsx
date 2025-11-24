@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Search, ExternalLink, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Layers } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
-import { DIRECTIONS, OPTION_TYPES, EMOTIONS } from '../constants';
+import { DIRECTIONS, OPTION_TYPES, EMOTIONS, POPULAR_TICKERS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
 import { getPriceEstimate } from '../services/geminiService';
 
@@ -720,442 +720,297 @@ const TradeDetailsModal: React.FC<{
   );
 };
 
-const TradeJournal: React.FC<TradeJournalProps> = ({ 
-  trades, 
-  userSettings,
-  onAddTrade, 
-  onUpdateTrade, 
-  onDeleteTrade 
-}) => {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAddTrade, onUpdateTrade, onDeleteTrade }) => {
   const [showDisciplineGuard, setShowDisciplineGuard] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // New Trade Form State
+  
+  // New trade form state
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
     direction: TradeDirection.LONG,
     optionType: OptionType.CALL,
-    entryEmotion: Emotion.CALM,
     quantity: 1,
-    entryDate: new Date().toISOString(),
-    status: TradeStatus.OPEN
+    status: TradeStatus.OPEN,
+    entryEmotion: Emotion.CALM
   });
 
-  // Calculate daily trade count for warning in Add Modal
-  const getDailyTradeCount = (dateStr?: string) => {
-     if (!dateStr) return 0;
-     const targetDate = new Date(dateStr).toDateString();
-     let count = 0;
-     trades.forEach(t => {
-        if (new Date(t.entryDate).toDateString() === targetDate) count += 0.5;
-        if (t.exitDate && new Date(t.exitDate).toDateString() === targetDate) count += 0.5;
-     });
-     return count;
-  };
-  
-  const currentDailyCount = getDailyTradeCount(newTrade.entryDate);
-  const willExceedLimit = (currentDailyCount + 0.5) > userSettings.maxTradesPerDay;
-
-  // Auto-calculate Targets for New Trade
-  useEffect(() => {
-    if (newTrade.entryPrice) {
-      const entry = newTrade.entryPrice;
-      const targetPct = userSettings.defaultTargetPercent / 100;
-      const stopPct = userSettings.defaultStopLossPercent / 100;
-      
-      let target, stop;
-      if (newTrade.direction === TradeDirection.SHORT) {
-        target = entry * (1 - targetPct);
-        stop = entry * (1 + stopPct);
-      } else {
-        target = entry * (1 + targetPct);
-        stop = entry * (1 - stopPct);
-      }
-
-      setNewTrade(prev => ({
-        ...prev,
-        targetPrice: parseFloat(target.toFixed(2)),
-        stopLossPrice: parseFloat(stop.toFixed(2))
-      }));
-    }
-  }, [newTrade.entryPrice, newTrade.direction, userSettings]);
-
-  const handleInitialSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    // Validate Entry Date
-    if (newTrade.entryDate) {
-      const entryDate = new Date(newTrade.entryDate);
-      const now = new Date();
-      if (entryDate > now) {
-        setError("Future entry dates are not allowed. Please check the date and time.");
-        return;
-      }
-    }
-
+  const handleStartAddTrade = () => {
     setShowDisciplineGuard(true);
   };
 
-  const handleDisciplineConfirmed = (checklist: DisciplineChecklist, score: number) => {
+  const handleDisciplineProceed = (checklist: DisciplineChecklist, score: number) => {
+    setNewTrade(prev => ({
+      ...prev,
+      checklist,
+      disciplineScore: score,
+      entryDate: new Date().toISOString()
+    }));
+    setShowDisciplineGuard(false);
+    setShowAddModal(true);
+  };
+
+  const handleSubmitNewTrade = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTrade.ticker || !newTrade.entryPrice || !newTrade.strikePrice) return;
+
+    // Auto set targets if not set
+    let target = newTrade.targetPrice;
+    let stop = newTrade.stopLossPrice;
+    if (!target || !stop) {
+       const entry = newTrade.entryPrice;
+       const targetPct = userSettings.defaultTargetPercent / 100;
+       const stopPct = userSettings.defaultStopLossPercent / 100;
+       
+       if (newTrade.direction === TradeDirection.SHORT) {
+         if (!target) target = entry * (1 - targetPct);
+         if (!stop) stop = entry * (1 + stopPct);
+       } else {
+         if (!target) target = entry * (1 + targetPct);
+         if (!stop) stop = entry * (1 - stopPct);
+       }
+    }
+
     const trade: Trade = {
       id: Date.now().toString(),
-      ticker: newTrade.ticker || 'UNKNOWN',
+      ticker: newTrade.ticker.toUpperCase(),
       direction: newTrade.direction as TradeDirection,
       optionType: newTrade.optionType as OptionType,
       entryDate: newTrade.entryDate || new Date().toISOString(),
+      expirationDate: newTrade.expirationDate || new Date().toISOString().split('T')[0],
       status: TradeStatus.OPEN,
-      entryPrice: newTrade.entryPrice || 0,
+      entryPrice: newTrade.entryPrice,
       strikePrice: newTrade.strikePrice,
-      expirationDate: newTrade.expirationDate,
       quantity: newTrade.quantity || 1,
-      targetPrice: newTrade.targetPrice,
-      stopLossPrice: newTrade.stopLossPrice,
+      targetPrice: parseFloat(target?.toFixed(2) || '0'),
+      stopLossPrice: parseFloat(stop?.toFixed(2) || '0'),
       notes: newTrade.notes || '',
       entryEmotion: newTrade.entryEmotion as Emotion,
-      checklist,
-      disciplineScore: score,
-      violationReason: score < 100 ? 'Checklist items unchecked' : undefined
+      checklist: newTrade.checklist!,
+      disciplineScore: newTrade.disciplineScore || 0,
     };
 
     onAddTrade(trade);
-    setShowDisciplineGuard(false);
-    setIsAddModalOpen(false);
-    setError(null);
-    // Reset form
+    setShowAddModal(false);
     setNewTrade({
-      direction: TradeDirection.LONG,
-      optionType: OptionType.CALL,
-      entryEmotion: Emotion.CALM,
-      quantity: 1,
-      entryDate: new Date().toISOString(),
-      status: TradeStatus.OPEN
+        direction: TradeDirection.LONG, 
+        optionType: OptionType.CALL, 
+        quantity: 1, 
+        status: TradeStatus.OPEN,
+        entryEmotion: Emotion.CALM
     });
   };
 
   return (
-    <div>
-       <div className="mb-6 flex items-center justify-between">
-         <h2 className="text-lg font-semibold text-white">Recent Trade Log</h2>
-         <button 
-           onClick={() => {
-             setIsAddModalOpen(true);
-             setError(null);
-           }}
-           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/20"
-         >
-           <Plus className="h-4 w-4" />
-           Log New Trade
-         </button>
+    <div className="space-y-6">
+       <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">Trade History</h2>
+          <button 
+            onClick={handleStartAddTrade}
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/20 transition-all hover:scale-105 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            Log New Trade
+          </button>
        </div>
 
-       {/* Trades Grid */}
-       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {trades.map((trade) => (
-             <div 
-               key={trade.id}
-               onClick={() => setSelectedTrade(trade)}
-               className="group relative cursor-pointer overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 p-5 transition-all hover:-translate-y-1 hover:border-zinc-700 hover:shadow-xl hover:shadow-black/50"
-             >
-                {/* Status Indicator Bar */}
-                <div className={`absolute left-0 top-0 h-full w-1 ${
-                  trade.status === TradeStatus.OPEN ? 'bg-blue-500' : 
-                  (trade.pnl || 0) > 0 ? 'bg-emerald-500' : 'bg-rose-500'
-                }`}></div>
-
-                <div className="mb-3 flex items-start justify-between">
-                   <div>
-                      <h3 className="font-bold text-white text-lg">
-                        {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
-                      </h3>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        {new Date(trade.entryDate).toLocaleDateString()}
-                      </p>
-                   </div>
-                   <div className="flex flex-col items-end gap-2">
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        trade.direction === 'Long' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                      }`}>
-                        {trade.direction}
-                      </span>
-                      {getOutcomeIcon(trade)}
-                   </div>
-                </div>
-
-                <div className="mb-4 flex items-center gap-4 text-sm">
-                   <div>
-                     <p className="text-[10px] text-zinc-500">Entry</p>
-                     <p className="font-mono text-zinc-300">${trade.entryPrice.toFixed(2)}</p>
-                   </div>
-                   {trade.status === TradeStatus.CLOSED ? (
-                      <div>
-                        <p className="text-[10px] text-zinc-500">P&L</p>
-                        <p className={`font-mono font-bold ${
-                           (trade.pnl || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'
-                        }`}>
-                           {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toFixed(2)}` : '-'}
-                        </p>
-                      </div>
-                   ) : (
-                      <div>
-                        <p className="text-[10px] text-zinc-500">Target</p>
-                        <p className="font-mono text-zinc-300">${trade.targetPrice ? trade.targetPrice.toFixed(2) : '-'}</p>
-                      </div>
-                   )}
-                </div>
-
-                <div className="flex items-center justify-between border-t border-zinc-800 pt-3 text-xs">
-                   <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${trade.disciplineScore >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                      <span className="text-zinc-400">Score: {trade.disciplineScore}</span>
-                   </div>
-                   <span className={`rounded-full px-2 py-0.5 text-[10px] ${
-                      trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-500'
-                   }`}>
-                      {trade.status}
-                   </span>
-                </div>
-             </div>
-          ))}
-       </div>
-
-       {/* Add Trade Modal */}
-       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 p-6">
-              <h2 className="text-xl font-bold text-white">Log New Trade</h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-zinc-400 hover:text-white">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleInitialSubmit} className="p-6 space-y-6">
-              
-              {willExceedLimit && (
-                 <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 flex gap-3">
-                    <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-amber-500">Daily Trade Limit Warning</p>
-                      <p className="text-xs text-amber-400/80 mt-1">
-                        You have already used {currentDailyCount} trade slots for this day. 
-                        Opening this trade (0.5 cost) will exceed your limit of {userSettings.maxTradesPerDay}.
-                        <br/>
-                        <span className="opacity-70 italic">Discipline is choosing what you want most over what you want now.</span>
-                      </p>
-                    </div>
-                 </div>
-              )}
-              
-              {error && (
-                <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 flex items-start gap-2 text-rose-400">
-                  <AlertTriangle className="h-5 w-5 shrink-0" />
-                  <p className="text-sm">{error}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Ticker Symbol</label>
-                   <input 
-                     required
-                     type="text" 
-                     placeholder="e.g. SPY"
-                     value={newTrade.ticker || ''}
-                     onChange={e => setNewTrade({...newTrade, ticker: e.target.value.toUpperCase()})}
-                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none placeholder-zinc-600"
-                   />
-                </div>
-                 <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Entry Date & Time</label>
-                   <input 
-                     required
-                     type="datetime-local" 
-                     value={newTrade.entryDate?.slice(0, 16)}
-                     onChange={e => setNewTrade({...newTrade, entryDate: e.target.value})}
-                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                   />
-                </div>
-                <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Direction</label>
-                   <div className="flex rounded-lg bg-zinc-800 p-1 border border-zinc-700">
-                      {DIRECTIONS.map(d => (
-                        <button
-                          type="button"
-                          key={d}
-                          onClick={() => setNewTrade({...newTrade, direction: d})}
-                          className={`flex-1 rounded py-1.5 text-xs font-medium transition-colors ${
-                            newTrade.direction === d ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'
-                          }`}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                   </div>
-                </div>
-                <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Option Type</label>
-                    <div className="flex rounded-lg bg-zinc-800 p-1 border border-zinc-700">
-                      {OPTION_TYPES.map(o => (
-                        <button
-                          type="button"
-                          key={o}
-                          onClick={() => setNewTrade({...newTrade, optionType: o})}
-                          className={`flex-1 rounded py-1.5 text-xs font-medium transition-colors ${
-                            newTrade.optionType === o ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'
-                          }`}
-                        >
-                          {o}
-                        </button>
-                      ))}
-                   </div>
-                </div>
-                <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Entry Price</label>
-                   <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
-                      <input 
-                        required
-                        type="number" step="0.01"
-                        placeholder="0.00"
-                        value={newTrade.entryPrice || ''}
-                        onChange={e => setNewTrade({...newTrade, entryPrice: parseFloat(e.target.value)})}
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                      />
-                   </div>
-                </div>
-                <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Quantity</label>
-                   <input 
-                     required
-                     type="number"
-                     min="1"
-                     value={newTrade.quantity}
-                     onChange={e => setNewTrade({...newTrade, quantity: parseInt(e.target.value)})}
-                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                   />
-                </div>
-                
-                 <div>
-                   <label className="mb-2 block text-xs text-emerald-400 flex items-center gap-1">
-                     <Target className="h-3 w-3" /> Target Price
-                   </label>
-                   <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
-                      <input 
-                        type="number" step="0.01"
-                        value={newTrade.targetPrice || ''}
-                        onChange={e => setNewTrade({...newTrade, targetPrice: parseFloat(e.target.value)})}
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                      />
-                   </div>
-                   <p className="text-[10px] text-zinc-500 mt-1">Default: {userSettings.defaultTargetPercent}% gain</p>
-                </div>
-                <div>
-                   <label className="mb-2 block text-xs text-rose-400 flex items-center gap-1">
-                     <ShieldAlert className="h-3 w-3" /> Stop Loss Price
-                   </label>
-                   <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
-                      <input 
-                        type="number" step="0.01"
-                        value={newTrade.stopLossPrice || ''}
-                        onChange={e => setNewTrade({...newTrade, stopLossPrice: parseFloat(e.target.value)})}
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-4 py-2 text-white focus:border-rose-500 focus:outline-none"
-                      />
-                   </div>
-                    <p className="text-[10px] text-zinc-500 mt-1">Default: {userSettings.defaultStopLossPercent}% loss</p>
-                </div>
-
-                <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Strike Price</label>
-                   <input 
-                     required
-                     type="number" step="0.5"
-                     value={newTrade.strikePrice || ''}
-                     onChange={e => setNewTrade({...newTrade, strikePrice: parseFloat(e.target.value)})}
-                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                   />
-                </div>
-                 <div>
-                   <label className="mb-2 block text-xs text-zinc-400">Expiration Date</label>
-                   <input 
-                     required
-                     type="date"
-                     value={newTrade.expirationDate || ''}
-                     onChange={e => setNewTrade({...newTrade, expirationDate: e.target.value})}
-                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                   />
-                </div>
-                
-                <div className="md:col-span-2">
-                   <label className="mb-2 block text-xs text-zinc-400">Current Emotion</label>
-                   <div className="flex flex-wrap gap-2">
-                      {EMOTIONS.map(em => (
-                        <button
-                          type="button"
-                          key={em}
-                          onClick={() => setNewTrade({...newTrade, entryEmotion: em})}
-                          className={`rounded-full px-3 py-1 text-xs border transition-colors ${
-                             newTrade.entryEmotion === em 
-                              ? 'bg-indigo-600 border-indigo-500 text-white'
-                              : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
-                          }`}
-                        >
-                          {em}
-                        </button>
-                      ))}
-                   </div>
-                </div>
-
-                <div className="md:col-span-2">
-                   <label className="mb-2 block text-xs text-zinc-400">Notes / Strategy</label>
-                   <textarea 
-                     rows={3}
-                     placeholder="Why did you take this trade? What did you see?"
-                     value={newTrade.notes || ''}
-                     onChange={e => setNewTrade({...newTrade, notes: e.target.value})}
-                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                   />
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-4">
-                 <button 
-                  type="submit"
-                  className="rounded-lg bg-indigo-600 px-8 py-3 font-semibold text-white transition-transform hover:scale-105 hover:bg-indigo-500"
-                 >
-                   Review Checklist & Save
-                 </button>
-              </div>
-            </form>
-          </div>
-        </div>
-       )}
-
-       {/* Discipline Guard Overlay */}
        {showDisciplineGuard && (
          <DisciplineGuard 
-           onProceed={handleDisciplineConfirmed}
-           onCancel={() => setShowDisciplineGuard(false)}
+           onProceed={handleDisciplineProceed} 
+           onCancel={() => setShowDisciplineGuard(false)} 
          />
        )}
 
-       {/* Trade Details Modal */}
-       {selectedTrade && (
-         <TradeDetailsModal 
-           trade={selectedTrade} 
-           allTrades={trades}
-           userSettings={userSettings}
-           onClose={() => setSelectedTrade(null)} 
-           onUpdate={onUpdateTrade}
-           onDelete={() => {
-             onDeleteTrade(selectedTrade.id);
-             setSelectedTrade(null);
-           }}
-         />
+       {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-2xl rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+               <div className="border-b border-zinc-800 bg-zinc-900/95 px-6 py-4 flex justify-between items-center">
+                  <h3 className="text-lg font-bold text-white">New Trade Entry</h3>
+                  <button onClick={() => setShowAddModal(false)}><X className="h-5 w-5 text-zinc-400 hover:text-white" /></button>
+               </div>
+               <form onSubmit={handleSubmitNewTrade} className="p-6 space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Ticker</label>
+                         <input 
+                           required autoFocus
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white uppercase focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.ticker || ''}
+                           onChange={e => setNewTrade({...newTrade, ticker: e.target.value})}
+                           list="popular-tickers"
+                         />
+                         <datalist id="popular-tickers">
+                            {POPULAR_TICKERS.map(t => <option key={t} value={t} />)}
+                         </datalist>
+                      </div>
+                      <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Strike Price</label>
+                         <input 
+                           required type="number" step="0.5"
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.strikePrice || ''}
+                           onChange={e => setNewTrade({...newTrade, strikePrice: parseFloat(e.target.value)})}
+                         />
+                      </div>
+                      <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Direction</label>
+                         <select 
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.direction}
+                           onChange={e => setNewTrade({...newTrade, direction: e.target.value as TradeDirection})}
+                         >
+                            {DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                         </select>
+                      </div>
+                      <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Type</label>
+                         <select 
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.optionType}
+                           onChange={e => setNewTrade({...newTrade, optionType: e.target.value as OptionType})}
+                         >
+                            {OPTION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+                         </select>
+                      </div>
+                       <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Expiration</label>
+                         <input 
+                           required type="date"
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.expirationDate || ''}
+                           onChange={e => setNewTrade({...newTrade, expirationDate: e.target.value})}
+                         />
+                      </div>
+                      <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Entry Price</label>
+                         <input 
+                           required type="number" step="0.01"
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.entryPrice || ''}
+                           onChange={e => setNewTrade({...newTrade, entryPrice: parseFloat(e.target.value)})}
+                         />
+                      </div>
+                       <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Quantity</label>
+                         <input 
+                           required type="number"
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.quantity || ''}
+                           onChange={e => setNewTrade({...newTrade, quantity: parseInt(e.target.value)})}
+                         />
+                      </div>
+                      <div>
+                         <label className="text-xs text-zinc-400 block mb-1">Emotion</label>
+                         <select 
+                           className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                           value={newTrade.entryEmotion}
+                           onChange={e => setNewTrade({...newTrade, entryEmotion: e.target.value as Emotion})}
+                         >
+                            {EMOTIONS.map(e => <option key={e} value={e}>{e}</option>)}
+                         </select>
+                      </div>
+                   </div>
+                   
+                   <div>
+                      <label className="text-xs text-zinc-400 block mb-1">Notes</label>
+                      <textarea 
+                        rows={3}
+                        className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                        value={newTrade.notes || ''}
+                        onChange={e => setNewTrade({...newTrade, notes: e.target.value})}
+                        placeholder="Why this trade? Setup?"
+                      />
+                   </div>
+
+                   <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+                      <button type="button" onClick={() => setShowAddModal(false)} className="text-sm text-zinc-400 hover:text-white">Cancel</button>
+                      <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded text-sm font-medium">Log Trade</button>
+                   </div>
+               </form>
+            </div>
+          </div>
        )}
+
+       {selectedTrade && (
+          <TradeDetailsModal 
+            trade={selectedTrade} 
+            allTrades={trades}
+            userSettings={userSettings}
+            onClose={() => setSelectedTrade(null)} 
+            onUpdate={onUpdateTrade}
+            onDelete={() => {
+              onDeleteTrade(selectedTrade.id);
+              setSelectedTrade(null);
+            }}
+          />
+       )}
+
+       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+          <table className="w-full text-left text-sm">
+             <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
+               <tr>
+                 <th className="px-6 py-4">Date</th>
+                 <th className="px-6 py-4">Contract</th>
+                 <th className="px-6 py-4">Side</th>
+                 <th className="px-6 py-4">Status</th>
+                 <th className="px-6 py-4">Discipline</th>
+                 <th className="px-6 py-4 text-right">P&L</th>
+               </tr>
+             </thead>
+             <tbody className="divide-y divide-zinc-800">
+               {trades.length === 0 ? (
+                 <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-zinc-500">
+                       No trades logged yet. Click "Log New Trade" to start.
+                    </td>
+                 </tr>
+               ) : (
+                 trades.map(trade => (
+                   <tr 
+                     key={trade.id} 
+                     onClick={() => setSelectedTrade(trade)}
+                     className="group cursor-pointer hover:bg-zinc-800/50 transition-colors"
+                   >
+                     <td className="px-6 py-4 text-zinc-400 group-hover:text-zinc-300">
+                       {new Date(trade.entryDate).toLocaleDateString()}
+                     </td>
+                     <td className="px-6 py-4 font-bold text-white">
+                       {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+                     </td>
+                     <td className="px-6 py-4 text-zinc-300">
+                       <span className={`inline-block rounded px-2 py-1 text-xs font-bold ${trade.direction === TradeDirection.LONG ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                         {trade.direction.toUpperCase()}
+                       </span>
+                     </td>
+                     <td className="px-6 py-4">
+                       <div className="flex items-center gap-2">
+                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
+                            {trade.status}
+                          </span>
+                          {getOutcomeIcon(trade)}
+                       </div>
+                     </td>
+                     <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                           <div className="h-1.5 w-16 rounded-full bg-zinc-800 overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full ${trade.disciplineScore >= 80 ? 'bg-emerald-500' : trade.disciplineScore >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} 
+                                style={{ width: `${trade.disciplineScore}%` }}
+                              />
+                           </div>
+                           <span className="text-xs text-zinc-500">{trade.disciplineScore}%</span>
+                        </div>
+                     </td>
+                     <td className={`px-6 py-4 text-right font-mono font-medium ${
+                        (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-500'
+                      }`}>
+                        {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toFixed(2)}` : '-'}
+                      </td>
+                   </tr>
+                 ))
+               )}
+             </tbody>
+          </table>
+       </div>
     </div>
   );
 };
