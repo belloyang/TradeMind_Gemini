@@ -8,10 +8,14 @@ import Analytics from './components/Analytics';
 import AICoach from './components/AICoach';
 import SettingsPage from './components/Settings';
 import AuthScreen from './components/AuthScreen';
+import SplashScreen from './components/SplashScreen';
 
 const STORAGE_KEY = 'trademind_data_v1';
 
 const App: React.FC = () => {
+  // --- Splash Screen State ---
+  const [showSplash, setShowSplash] = useState(true);
+
   // --- User Management State ---
   const [users, setUsers] = useState<UserProfile[]>(() => {
     try {
@@ -51,6 +55,14 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
   }, [users]);
+
+  // --- Splash Effect ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000); // Show splash for 3 seconds
+    return () => clearTimeout(timer);
+  }, []);
 
   // --- Derived Active User ---
   const activeUser = useMemo(() => 
@@ -194,6 +206,10 @@ const App: React.FC = () => {
   };
 
   // --- Render ---
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
 
   if (!activeUser) {
     return (

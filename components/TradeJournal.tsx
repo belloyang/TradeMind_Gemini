@@ -34,6 +34,9 @@ const formatContractName = (ticker: string, strike?: number, type?: string, date
 const getOutcomeIcon = (trade: Trade) => {
   if (trade.status === TradeStatus.OPEN || !trade.exitPrice || !trade.entryPrice) return null;
 
+  const directionMultiplier = trade.direction === TradeDirection.LONG ? 1 : -1;
+  const percentChange = ((trade.exitPrice - trade.entryPrice) / trade.entryPrice) * 100 * directionMultiplier;
+
   // 1. Check Stop Loss Violation
   const isStopLossViolated = trade.stopLossPrice && (
     (trade.direction === TradeDirection.LONG && trade.exitPrice <= trade.stopLossPrice) ||
@@ -42,9 +45,9 @@ const getOutcomeIcon = (trade: Trade) => {
 
   if (isStopLossViolated) {
     return (
-      <span title="Stop Loss Hit">
-        <AlertTriangle className="h-4 w-4 text-rose-500" />
-      </span>
+      <div title={`Stop Loss Violation (${percentChange.toFixed(1)}%)`} className="flex items-center justify-center rounded-full bg-rose-500/10 p-1">
+        <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+      </div>
     );
   }
 
@@ -56,21 +59,18 @@ const getOutcomeIcon = (trade: Trade) => {
 
   if (isTargetHit) {
     return (
-      <span title="Target Hit!">
-        <PartyPopper className="h-4 w-4 text-emerald-500" />
-      </span>
+      <div title={`Target Hit! (${percentChange.toFixed(1)}%)`} className="flex items-center justify-center rounded-full bg-emerald-500/10 p-1">
+        <PartyPopper className="h-3.5 w-3.5 text-emerald-500" />
+      </div>
     );
   }
 
   // 3. Check Neutral Range (-10% to +20%)
-  const directionMultiplier = trade.direction === TradeDirection.LONG ? 1 : -1;
-  const percentChange = ((trade.exitPrice - trade.entryPrice) / trade.entryPrice) * 100 * directionMultiplier;
-  
   if (percentChange >= -10 && percentChange <= 20) {
     return (
-      <span title="Okay Trade">
-        <ThumbsUp className="h-4 w-4 text-amber-500" />
-      </span>
+      <div title={`Neutral / Scratch Trade (${percentChange.toFixed(1)}%)`} className="flex items-center justify-center rounded-full bg-zinc-700/50 p-1">
+        <ThumbsUp className="h-3.5 w-3.5 text-zinc-400" />
+      </div>
     );
   }
 
@@ -91,6 +91,7 @@ const TradeDetailsModal: React.FC<{
   
   // Quick Status Toggle State
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [quickExitPrice, setQuickExitPrice] = useState<string>(trade.entryPrice.toString());
 
   // Market Data Check State
@@ -309,6 +310,39 @@ const TradeDetailsModal: React.FC<{
           </div>
         )}
 
+        {/* Delete Confirmation Modal Overlay */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4">
+             <div className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-in zoom-in-95">
+                <div className="flex items-center gap-3 mb-2">
+                   <div className="p-2 rounded-full bg-rose-500/10 text-rose-500">
+                     <Trash2 className="h-5 w-5" />
+                   </div>
+                   <h3 className="text-lg font-bold text-white">Delete Trade?</h3>
+                </div>
+                
+                <p className="text-sm text-zinc-400 mb-6">
+                  Are you sure you want to permanently delete this trade? This action cannot be undone.
+                </p>
+
+                <div className="flex justify-end gap-3">
+                  <button 
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-3 py-2 text-sm text-zinc-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={onDelete}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/20"
+                  >
+                    Delete Permanently
+                  </button>
+                </div>
+             </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-zinc-800 bg-zinc-900/95 px-6 py-6 backdrop-blur-sm">
           <div>
@@ -376,8 +410,9 @@ const TradeDetailsModal: React.FC<{
               </>
             )}
             <button
-               onClick={onDelete}
+               onClick={() => setShowDeleteConfirm(true)}
                className="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2 text-sm font-medium text-rose-400 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
+               title="Delete Trade"
             >
               <Trash2 className="h-4 w-4" />
               {isEditing && "Delete"}
