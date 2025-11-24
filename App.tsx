@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, BookOpen, Settings, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X } from 'lucide-react';
 import { Trade, Metrics, ArchivedSession, UserSettings } from './types';
 import { INITIAL_TRADES } from './constants';
 import Dashboard from './components/Dashboard';
@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [initialCapital, setInitialCapital] = useState(10000);
   const [sessionStartDate, setSessionStartDate] = useState(new Date('2024-05-01').toISOString());
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'analytics' | 'settings'>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Global User Settings
   const [userSettings, setUserSettings] = useState<UserSettings>({
@@ -90,6 +91,11 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans selection:bg-indigo-500/30">
       
@@ -103,6 +109,15 @@ const App: React.FC = () => {
           <span className="text-lg font-bold tracking-tight text-white">TradeMind</span>
         </div>
 
+        {/* Mobile Menu Toggle */}
+        <button 
+          className="md:hidden p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-colors"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+
+        {/* Desktop Navigation */}
         <nav className="hidden md:flex w-full flex-col gap-2">
           <NavButton 
             active={activeTab === 'dashboard'} 
@@ -131,6 +146,39 @@ const App: React.FC = () => {
           />
         </nav>
       </div>
+
+      {/* Mobile Navigation Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-30 bg-zinc-950 pt-20 px-4 md:hidden animate-in slide-in-from-top-5 fade-in duration-200">
+           <nav className="flex flex-col gap-2">
+              <NavButton 
+                active={activeTab === 'dashboard'} 
+                onClick={() => handleTabChange('dashboard')} 
+                icon={<LayoutDashboard size={20} />} 
+                label="Dashboard" 
+              />
+              <NavButton 
+                active={activeTab === 'journal'} 
+                onClick={() => handleTabChange('journal')} 
+                icon={<BookOpen size={20} />} 
+                label="Journal" 
+              />
+              <div className="my-2 border-t border-zinc-800 mx-2"></div>
+              <NavButton 
+                active={activeTab === 'analytics'} 
+                onClick={() => handleTabChange('analytics')} 
+                icon={<BarChart2 size={20} />} 
+                label="Analytics" 
+              />
+              <NavButton 
+                active={activeTab === 'settings'} 
+                onClick={() => handleTabChange('settings')} 
+                icon={<Settings size={20} />} 
+                label="Settings" 
+              />
+           </nav>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="pt-20 px-4 pb-10 md:pl-72 md:pt-8 md:pr-8">
