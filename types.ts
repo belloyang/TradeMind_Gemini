@@ -36,6 +36,7 @@ export interface Trade {
   direction: TradeDirection;
   optionType: OptionType;
   entryDate: string;
+  exitDate?: string; // New: Track when trade was closed
   expirationDate?: string;
   status: TradeStatus;
   entryPrice: number;
@@ -81,4 +82,5 @@ export interface ArchivedSession {
 export interface UserSettings {
   defaultTargetPercent: number;
   defaultStopLossPercent: number;
+  maxTradesPerDay: number;
 }

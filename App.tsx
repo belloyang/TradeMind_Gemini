@@ -17,7 +17,8 @@ const App: React.FC = () => {
   // Global User Settings
   const [userSettings, setUserSettings] = useState<UserSettings>({
     defaultTargetPercent: 40,
-    defaultStopLossPercent: 20
+    defaultStopLossPercent: 20,
+    maxTradesPerDay: 3
   });
   
   // Historical sessions

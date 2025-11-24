@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
-  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers
 } from 'lucide-react';
 import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings } from '../types';
 
@@ -293,9 +293,9 @@ const Settings: React.FC<SettingsProps> = ({
       <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Risk Management Defaults</h3>
         <p className="text-sm text-zinc-400 mb-6">
-          Set your default profit targets and stop losses. These are automatically calculated when you enter a trade but can be manually adjusted per trade.
+          Set your default profit targets, stop losses, and trade limits. These help enforce discipline.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
             <label className="block text-xs text-zinc-400 mb-2 flex items-center gap-2">
               <Target className="h-3 w-3" /> Default Profit Target (%)
@@ -323,6 +323,22 @@ const Settings: React.FC<SettingsProps> = ({
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
             </div>
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-400 mb-2 flex items-center gap-2">
+              <Layers className="h-3 w-3" /> Max Trades Per Day
+            </label>
+            <div className="relative">
+              <input 
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={userSettings.maxTradesPerDay}
+                onChange={(e) => onUpdateSettings({...userSettings, maxTradesPerDay: parseFloat(e.target.value)})}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-1">Open/Close = 0.5 each</p>
           </div>
         </div>
       </div>

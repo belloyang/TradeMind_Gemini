@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Search, ExternalLink, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp } from 'lucide-react';
+import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Search, ExternalLink, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Layers } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
 import { DIRECTIONS, OPTION_TYPES, EMOTIONS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
@@ -79,12 +79,13 @@ const getOutcomeIcon = (trade: Trade) => {
 
 const TradeDetailsModal: React.FC<{ 
   trade: Trade; 
+  allTrades: Trade[]; // needed for history validation
   userSettings: UserSettings;
   onClose: () => void; 
   onUpdate: (trade: Trade) => void;
   onDelete: () => void; 
   initialIsEditing?: boolean;
-}> = ({ trade, userSettings, onClose, onUpdate, onDelete, initialIsEditing = false }) => {
+}> = ({ trade, allTrades, userSettings, onClose, onUpdate, onDelete, initialIsEditing = false }) => {
   const [isEditing, setIsEditing] = useState(initialIsEditing);
   const [editForm, setEditForm] = useState<Trade>(trade);
   
@@ -123,11 +124,7 @@ const TradeDetailsModal: React.FC<{
         stop = entry * (1 - stopPct);
       }
 
-      // We only update if the calculated values are different to prevent infinite loops (though usually safe here)
-      // and we generally want to allow user override, but here we enforce calculation on entry change as requested.
       setEditForm(prev => {
-        // Only update if values are unset OR we are in the initial creation flow (implied by this effect running on entry change)
-        // To be safe and simple as per request: "automatically calculated"
         return {
           ...prev,
           targetPrice: parseFloat(target.toFixed(2)),
@@ -136,6 +133,26 @@ const TradeDetailsModal: React.FC<{
       });
     }
   }, [editForm.entryPrice, editForm.direction, isEditing, userSettings]);
+
+  // Max Trades per Day logic
+  const getDailyActivityCount = (dateStr: string, excludeTradeId: string) => {
+    const targetDate = new Date(dateStr).toDateString();
+    let count = 0;
+    allTrades.forEach(t => {
+       if (t.id === excludeTradeId) return;
+       // Count entry (0.5)
+       if (new Date(t.entryDate).toDateString() === targetDate) count += 0.5;
+       // Count exit (0.5)
+       if (t.exitDate && new Date(t.exitDate).toDateString() === targetDate) count += 0.5;
+    });
+    return count;
+  };
+
+  const entryDateActivity = getDailyActivityCount(editForm.entryDate, trade.id);
+  const exitDateActivity = editForm.exitDate ? getDailyActivityCount(editForm.exitDate, trade.id) : 0;
+  
+  const isEntryViolation = (entryDateActivity + 0.5) > userSettings.maxTradesPerDay;
+  const isExitViolation = editForm.exitDate && (exitDateActivity + 0.5) > userSettings.maxTradesPerDay;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +175,8 @@ const TradeDetailsModal: React.FC<{
     setEditForm({
       ...editForm,
       status: TradeStatus.CLOSED,
-      exitPrice: editForm.exitPrice || 0
+      exitPrice: editForm.exitPrice || 0,
+      exitDate: new Date().toISOString()
     });
     setIsEditing(true);
   };
@@ -177,6 +195,8 @@ const TradeDetailsModal: React.FC<{
     if (newStatus === TradeStatus.CLOSED) {
       const exitPrice = parseFloat(quickExitPrice);
       updatedTrade.exitPrice = exitPrice;
+      // Set Exit Date to NOW
+      updatedTrade.exitDate = new Date().toISOString();
       // Calculate PnL: (Exit - Entry) * Qty * 100 * direction
       const directionMultiplier = trade.direction === TradeDirection.LONG ? 1 : -1;
       updatedTrade.pnl = (exitPrice - trade.entryPrice) * trade.quantity * 100 * directionMultiplier;
@@ -184,6 +204,7 @@ const TradeDetailsModal: React.FC<{
     } else {
       // Re-opening: clear exit data
       updatedTrade.exitPrice = undefined;
+      updatedTrade.exitDate = undefined;
       updatedTrade.pnl = undefined;
       updatedTrade.exitEmotion = undefined;
     }
@@ -244,17 +265,26 @@ const TradeDetailsModal: React.FC<{
                 </p>
 
                 {trade.status === TradeStatus.OPEN && (
-                  <div className="mb-4">
-                    <label className="block text-xs text-zinc-500 mb-1">Exit Price</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      autoFocus
-                      value={quickExitPrice}
-                      onChange={(e) => setQuickExitPrice(e.target.value)}
-                      className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
+                   <>
+                    <div className="mb-4">
+                      <label className="block text-xs text-zinc-500 mb-1">Exit Price</label>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        autoFocus
+                        value={quickExitPrice}
+                        onChange={(e) => setQuickExitPrice(e.target.value)}
+                        className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                    {/* Quick Warning Check */}
+                    {(getDailyActivityCount(new Date().toISOString(), trade.id) + 0.5) > userSettings.maxTradesPerDay && (
+                        <div className="mb-4 rounded border border-rose-500/20 bg-rose-500/10 p-2 text-xs text-rose-400 flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span>Closing this now will exceed your daily limit of {userSettings.maxTradesPerDay} trades.</span>
+                        </div>
+                    )}
+                  </>
                 )}
 
                 <div className="flex justify-end gap-3">
@@ -364,6 +394,31 @@ const TradeDetailsModal: React.FC<{
 
         {isEditing ? (
           <form onSubmit={handleSave} className="p-6 space-y-6">
+             
+             {/* Limit Violation Warnings */}
+             {isEntryViolation && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 flex items-start gap-3">
+                   <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                   <div>
+                      <p className="text-sm font-bold text-amber-500">Daily Trade Limit Violation (Entry)</p>
+                      <p className="text-xs text-amber-400/80 mt-1">
+                        Opening this trade on {new Date(editForm.entryDate).toLocaleDateString()} exceeds your daily limit of {userSettings.maxTradesPerDay} trades.
+                      </p>
+                   </div>
+                </div>
+             )}
+             {isExitViolation && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 flex items-start gap-3">
+                   <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                   <div>
+                      <p className="text-sm font-bold text-amber-500">Daily Trade Limit Violation (Exit)</p>
+                      <p className="text-xs text-amber-400/80 mt-1">
+                        Closing this trade on {editForm.exitDate ? new Date(editForm.exitDate).toLocaleDateString() : ''} exceeds your daily limit of {userSettings.maxTradesPerDay} trades.
+                      </p>
+                   </div>
+                </div>
+             )}
+
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                    <label className="mb-2 block text-xs text-zinc-400">Direction</label>
@@ -482,169 +537,123 @@ const TradeDetailsModal: React.FC<{
                        />
                     </div>
                     <div>
-                      <label className="mb-2 block text-xs text-zinc-400">Exit Emotion</label>
-                      <select 
-                        value={editForm.exitEmotion || Emotion.CALM}
-                        onChange={e => setEditForm({...editForm, exitEmotion: e.target.value as Emotion})}
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                      >
-                        {EMOTIONS.map(e => <option key={e} value={e}>{e}</option>)}
-                      </select>
+                       <label className="mb-2 block text-xs text-zinc-400">Exit Date</label>
+                       <input 
+                         type="datetime-local"
+                         value={editForm.exitDate ? editForm.exitDate.slice(0, 16) : ''}
+                         onChange={e => setEditForm({...editForm, exitDate: e.target.value})}
+                         className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                       />
                     </div>
                   </div>
                </div>
              )}
 
-             <div>
-                <label className="mb-2 block text-xs text-zinc-400">Notes</label>
-                <textarea 
-                  value={editForm.notes}
-                  onChange={e => setEditForm({...editForm, notes: e.target.value})}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-                  rows={4}
-                />
+             <div className="pt-4">
+               <label className="mb-2 block text-xs text-zinc-400">Notes / Analysis</label>
+               <textarea 
+                 rows={4}
+                 value={editForm.notes}
+                 onChange={e => setEditForm({...editForm, notes: e.target.value})}
+                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+               />
              </div>
 
-             <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-               <button 
-                 type="button"
-                 onClick={() => setIsEditing(false)}
-                 className="px-4 py-2 text-sm text-zinc-400 hover:text-white"
-               >
-                 Cancel
-               </button>
-               <button 
-                 type="submit"
-                 className="flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-               >
-                 <Save className="h-4 w-4" />
-                 Save Changes
-               </button>
+             <div className="flex items-center justify-end gap-3 border-t border-zinc-800 pt-6">
+                <button 
+                  type="button" 
+                  onClick={() => setIsEditing(false)}
+                  className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                >
+                  Save Changes
+                </button>
              </div>
           </form>
         ) : (
           <div className="p-6 space-y-8">
-            
-            {/* Real-time Data Section */}
-            {trade.status === TradeStatus.OPEN && (
-              <div className="rounded-xl border border-indigo-500/20 bg-indigo-900/10 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-indigo-300">
-                    <Search className="h-4 w-4" />
-                    Real-time Check
-                  </div>
-                  <button 
-                    onClick={handleCheckPrice}
-                    disabled={checkingPrice}
-                    className="flex items-center gap-2 rounded-lg bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50"
-                  >
-                     {checkingPrice ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-                     {marketData ? 'Refresh' : 'Check Price'}
-                  </button>
-                </div>
-                
-                {marketData && (
-                  <div className="animate-in fade-in">
-                    <div className="mb-2 flex items-baseline gap-2">
-                       <span className="text-zinc-400 text-sm">Found Price:</span>
-                       <span className="text-lg font-mono font-bold text-white">
-                         {marketData.price ? `$${marketData.price.toFixed(2)}` : 'N/A'}
-                       </span>
-                    </div>
-                    <p className="text-xs text-zinc-400 mb-2 leading-relaxed">{marketData.text}</p>
-                    
-                    {marketData.sources && marketData.sources.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {marketData.sources.slice(0, 2).map((source, idx) => (
-                          <a 
-                            key={idx} 
-                            href={source.uri} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[10px] text-indigo-400 hover:underline"
-                          >
-                            {source.title.slice(0, 20)}... <ExternalLink className="h-2 w-2" />
-                          </a>
-                        ))}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+               <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                 <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><DollarSign className="h-3 w-3" /> P&L</p>
+                 <p className={`text-xl font-mono font-bold ${
+                   (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+                 }`}>
+                   {trade.pnl ? `$${trade.pnl.toFixed(2)}` : '---'}
+                 </p>
+               </div>
+               <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                 <p className="text-xs text-zinc-500 mb-1">Entry Price</p>
+                 <p className="text-xl font-mono font-bold text-zinc-200">${trade.entryPrice.toFixed(2)}</p>
+               </div>
+               <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                 <p className="text-xs text-zinc-500 mb-1">Exit Price</p>
+                 <p className="text-xl font-mono font-bold text-zinc-200">
+                   {trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '---'}
+                 </p>
+               </div>
+               <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
+                 <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Hash className="h-3 w-3" /> Quantity</p>
+                 <p className="text-xl font-mono font-bold text-zinc-200">{trade.quantity}</p>
+               </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+               <div className="flex items-center justify-between mb-3">
+                 <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                   <Activity className="h-4 w-4 text-indigo-400" /> 
+                   Trade Logic & Notes
+                 </h3>
+                 <button 
+                   onClick={handleCheckPrice}
+                   className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                 >
+                   {checkingPrice ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                   Check Market Data
+                 </button>
+               </div>
+               
+               {marketData && (
+                 <div className="mb-4 rounded-lg bg-zinc-950/50 p-3 border border-zinc-800">
+                    <p className="text-sm text-zinc-300 whitespace-pre-wrap">{marketData.text}</p>
+                    {marketData.price && (
+                      <div className="mt-2 flex items-center gap-3">
+                         <span className="text-lg font-bold text-white">${marketData.price}</span>
+                         <button 
+                           onClick={applyFoundPrice}
+                           className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded"
+                         >
+                           Use Price
+                         </button>
                       </div>
                     )}
-                    
-                    {marketData.price && (
-                      <button 
-                        onClick={applyFoundPrice}
-                        className="mt-3 w-full rounded border border-indigo-500/30 bg-indigo-500/10 py-2 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20"
-                      >
-                        Use ${marketData.price} as Exit Price
-                      </button>
+                    {marketData.sources && marketData.sources.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-zinc-800">
+                        <p className="text-xs text-zinc-500 mb-1">Sources:</p>
+                        <ul className="space-y-1">
+                          {marketData.sources.map((source, i) => (
+                             <li key={i}>
+                               <a href={source.uri} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline flex items-center gap-1">
+                                 <ExternalLink className="h-3 w-3" /> {source.title}
+                               </a>
+                             </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
-                  </div>
-                )}
-              </div>
-            )}
+                 </div>
+               )}
 
-            {/* Read-Only View */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><DollarSign className="h-3 w-3" /> P&L</p>
-                <p className={`text-xl font-mono font-bold ${
-                  (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
-                }`}>
-                  {trade.pnl ? `$${trade.pnl.toFixed(2)}` : '---'}
-                </p>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                <p className="text-xs text-zinc-500 mb-1">Entry Price</p>
-                <p className="text-xl font-mono font-bold text-zinc-200">${trade.entryPrice.toFixed(2)}</p>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                <p className="text-xs text-zinc-500 mb-1">Exit Price</p>
-                <div className="flex items-center gap-2">
-                   <p className="text-xl font-mono font-bold text-zinc-200">
-                    {trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '---'}
-                   </p>
-                   {getOutcomeIcon(trade)}
-                </div>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Hash className="h-3 w-3" /> Quantity</p>
-                <p className="text-xl font-mono font-bold text-zinc-200">{trade.quantity}</p>
-              </div>
-              
-              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                 <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1 text-emerald-400/80"><Target className="h-3 w-3" /> Target</p>
-                 <p className="text-lg font-mono font-bold text-zinc-200">
-                   {trade.targetPrice ? `$${trade.targetPrice.toFixed(2)}` : '---'}
-                 </p>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4">
-                 <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1 text-rose-400/80"><ShieldAlert className="h-3 w-3" /> Stop Loss</p>
-                 <p className="text-lg font-mono font-bold text-zinc-200">
-                   {trade.stopLossPrice ? `$${trade.stopLossPrice.toFixed(2)}` : '---'}
-                 </p>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-4 col-span-2">
-                 <p className="text-xs text-zinc-500 mb-1">Expiration</p>
-                 <p className="text-lg font-mono font-bold text-zinc-200">
-                   {trade.expirationDate ? new Date(trade.expirationDate).toLocaleDateString() : '---'}
-                 </p>
-              </div>
+               <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">
+                 {trade.notes || "No notes recorded for this trade."}
+               </p>
             </div>
 
-            {/* Notes Section */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
-                <Activity className="h-4 w-4 text-indigo-400" /> 
-                Trade Logic & Notes
-              </h3>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">
-                {trade.notes || "No notes recorded for this trade."}
-              </p>
-            </div>
-
-            {/* Discipline & Psychology Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Discipline Score Card */}
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
@@ -657,7 +666,6 @@ const TradeDetailsModal: React.FC<{
                     <span>{trade.disciplineScore}%</span>
                   </div>
                 </div>
-                
                 <div className="space-y-3">
                   {checklistItems.map((item) => (
                     <div key={item.key} className="flex items-center justify-between text-sm">
@@ -670,46 +678,36 @@ const TradeDetailsModal: React.FC<{
                     </div>
                   ))}
                 </div>
-
                 {trade.violationReason && (
-                  <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3">
-                     <div className="flex items-start gap-2 text-xs text-rose-400">
-                       <AlertTriangle className="h-4 w-4 shrink-0" />
-                       <p>{trade.violationReason}</p>
-                     </div>
-                  </div>
+                   <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3">
+                      <div className="flex items-start gap-2 text-xs text-rose-400">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        <p>{trade.violationReason}</p>
+                      </div>
+                   </div>
                 )}
               </div>
 
-              {/* Psychology Card */}
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
                 <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-300">
                   <Brain className="h-4 w-4 text-purple-400" /> 
                   Psychology
                 </h3>
-                
                 <div className="space-y-4">
-                  <div>
-                    <p className="text-xs text-zinc-500 mb-1">Entry State</p>
-                    <div className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-sm text-zinc-300">
-                      {trade.entryEmotion}
-                    </div>
-                  </div>
-                  
-                  {trade.exitEmotion && (
-                     <div>
-                      <p className="text-xs text-zinc-500 mb-1">Exit State</p>
-                      <div className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-sm text-zinc-300">
-                        {trade.exitEmotion}
-                      </div>
-                    </div>
-                  )}
-
-                  {!trade.exitEmotion && trade.status === TradeStatus.OPEN && (
-                     <div className="text-xs text-zinc-500 italic">
-                       Psychology update available upon closing.
+                   <div>
+                     <p className="text-xs text-zinc-500 mb-1">Entry State</p>
+                     <div className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-sm text-zinc-300">
+                       {trade.entryEmotion}
                      </div>
-                  )}
+                   </div>
+                   {trade.exitEmotion && (
+                      <div>
+                       <p className="text-xs text-zinc-500 mb-1">Exit State</p>
+                       <div className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-sm text-zinc-300">
+                         {trade.exitEmotion}
+                       </div>
+                     </div>
+                   )}
                 </div>
               </div>
             </div>
@@ -720,170 +718,416 @@ const TradeDetailsModal: React.FC<{
   );
 };
 
-// Main Component
-const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAddTrade, onUpdateTrade, onDeleteTrade }) => {
-  const [showGuard, setShowGuard] = useState(false);
+const TradeJournal: React.FC<TradeJournalProps> = ({ 
+  trades, 
+  userSettings,
+  onAddTrade, 
+  onUpdateTrade, 
+  onDeleteTrade 
+}) => {
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showDisciplineGuard, setShowDisciplineGuard] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
-  const [isNewTrade, setIsNewTrade] = useState(false);
 
-  const handleAddClick = () => {
-    setShowGuard(true);
+  // New Trade Form State
+  const [newTrade, setNewTrade] = useState<Partial<Trade>>({
+    direction: TradeDirection.LONG,
+    optionType: OptionType.CALL,
+    entryEmotion: Emotion.CALM,
+    quantity: 1,
+    entryDate: new Date().toISOString(),
+    status: TradeStatus.OPEN
+  });
+
+  // Calculate daily trade count for warning in Add Modal
+  const getDailyTradeCount = (dateStr?: string) => {
+     if (!dateStr) return 0;
+     const targetDate = new Date(dateStr).toDateString();
+     let count = 0;
+     trades.forEach(t => {
+        if (new Date(t.entryDate).toDateString() === targetDate) count += 0.5;
+        if (t.exitDate && new Date(t.exitDate).toDateString() === targetDate) count += 0.5;
+     });
+     return count;
+  };
+  
+  const currentDailyCount = getDailyTradeCount(newTrade.entryDate);
+  const willExceedLimit = (currentDailyCount + 0.5) > userSettings.maxTradesPerDay;
+
+  // Auto-calculate Targets for New Trade
+  useEffect(() => {
+    if (newTrade.entryPrice) {
+      const entry = newTrade.entryPrice;
+      const targetPct = userSettings.defaultTargetPercent / 100;
+      const stopPct = userSettings.defaultStopLossPercent / 100;
+      
+      let target, stop;
+      if (newTrade.direction === TradeDirection.SHORT) {
+        target = entry * (1 - targetPct);
+        stop = entry * (1 + stopPct);
+      } else {
+        target = entry * (1 + targetPct);
+        stop = entry * (1 - stopPct);
+      }
+
+      setNewTrade(prev => ({
+        ...prev,
+        targetPrice: parseFloat(target.toFixed(2)),
+        stopLossPrice: parseFloat(stop.toFixed(2))
+      }));
+    }
+  }, [newTrade.entryPrice, newTrade.direction, userSettings]);
+
+  const handleInitialSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setShowDisciplineGuard(true);
   };
 
-  const handleGuardProceed = (checklist: DisciplineChecklist, score: number) => {
-    setShowGuard(false);
-    // Create new blank trade
-    const newTrade: Trade = {
+  const handleDisciplineConfirmed = (checklist: DisciplineChecklist, score: number) => {
+    const trade: Trade = {
       id: Date.now().toString(),
-      ticker: 'SPY', // Default
-      direction: TradeDirection.LONG,
-      optionType: OptionType.CALL,
-      entryDate: new Date().toISOString(),
+      ticker: newTrade.ticker || 'UNKNOWN',
+      direction: newTrade.direction as TradeDirection,
+      optionType: newTrade.optionType as OptionType,
+      entryDate: newTrade.entryDate || new Date().toISOString(),
       status: TradeStatus.OPEN,
-      entryPrice: 0,
-      quantity: 1,
-      notes: '',
-      entryEmotion: Emotion.CALM,
+      entryPrice: newTrade.entryPrice || 0,
+      strikePrice: newTrade.strikePrice,
+      expirationDate: newTrade.expirationDate,
+      quantity: newTrade.quantity || 1,
+      targetPrice: newTrade.targetPrice,
+      stopLossPrice: newTrade.stopLossPrice,
+      notes: newTrade.notes || '',
+      entryEmotion: newTrade.entryEmotion as Emotion,
       checklist,
       disciplineScore: score,
-      violationReason: score < 100 ? 'Checklist items missed' : undefined
+      violationReason: score < 100 ? 'Checklist items unchecked' : undefined
     };
 
-    setIsNewTrade(true);
-    setSelectedTrade(newTrade);
-  };
-
-  const handleModalClose = () => {
-    setSelectedTrade(null);
-    setIsNewTrade(false);
-  };
-
-  const handleModalUpdate = (updatedTrade: Trade) => {
-    if (isNewTrade) {
-      onAddTrade(updatedTrade);
-    } else {
-      onUpdateTrade(updatedTrade);
-    }
-    handleModalClose();
-  };
-
-  const handleModalDelete = () => {
-    if (selectedTrade) {
-      onDeleteTrade(selectedTrade.id);
-      handleModalClose();
-    }
+    onAddTrade(trade);
+    setShowDisciplineGuard(false);
+    setIsAddModalOpen(false);
+    // Reset form
+    setNewTrade({
+      direction: TradeDirection.LONG,
+      optionType: OptionType.CALL,
+      entryEmotion: Emotion.CALM,
+      quantity: 1,
+      entryDate: new Date().toISOString(),
+      status: TradeStatus.OPEN
+    });
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-200">Recent Trades</h2>
-        <button 
-          onClick={handleAddClick}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 shadow-lg shadow-indigo-900/20"
-        >
-          <Plus className="h-4 w-4" />
-          Log Trade
-        </button>
-      </div>
+    <div>
+       <div className="mb-6 flex items-center justify-between">
+         <h2 className="text-lg font-semibold text-white">Recent Trade Log</h2>
+         <button 
+           onClick={() => setIsAddModalOpen(true)}
+           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/20"
+         >
+           <Plus className="h-4 w-4" />
+           Log New Trade
+         </button>
+       </div>
 
-      {/* Trade Grid */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {trades.map((trade) => (
-          <div 
-            key={trade.id}
-            onClick={() => {
-              setIsNewTrade(false);
-              setSelectedTrade(trade);
-            }}
-            className="group relative cursor-pointer overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 transition-all hover:border-zinc-700 hover:bg-zinc-900"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full font-bold text-white ${trade.direction === TradeDirection.LONG ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                  {trade.ticker.slice(0, 1)}
+       {/* Trades Grid */}
+       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {trades.map((trade) => (
+             <div 
+               key={trade.id}
+               onClick={() => setSelectedTrade(trade)}
+               className="group relative cursor-pointer overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 p-5 transition-all hover:-translate-y-1 hover:border-zinc-700 hover:shadow-xl hover:shadow-black/50"
+             >
+                {/* Status Indicator Bar */}
+                <div className={`absolute left-0 top-0 h-full w-1 ${
+                  trade.status === TradeStatus.OPEN ? 'bg-blue-500' : 
+                  (trade.pnl || 0) > 0 ? 'bg-emerald-500' : 'bg-rose-500'
+                }`}></div>
+
+                <div className="mb-3 flex items-start justify-between">
+                   <div>
+                      <h3 className="font-bold text-white text-lg">
+                        {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+                      </h3>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        {new Date(trade.entryDate).toLocaleDateString()}
+                      </p>
+                   </div>
+                   <div className="flex flex-col items-end gap-2">
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        trade.direction === 'Long' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+                      }`}>
+                        {trade.direction}
+                      </span>
+                      {getOutcomeIcon(trade)}
+                   </div>
+                </div>
+
+                <div className="mb-4 flex items-center gap-4 text-sm">
+                   <div>
+                     <p className="text-[10px] text-zinc-500">Entry</p>
+                     <p className="font-mono text-zinc-300">${trade.entryPrice}</p>
+                   </div>
+                   {trade.status === TradeStatus.CLOSED ? (
+                      <div>
+                        <p className="text-[10px] text-zinc-500">P&L</p>
+                        <p className={`font-mono font-bold ${
+                           (trade.pnl || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}>
+                           {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl}` : '-'}
+                        </p>
+                      </div>
+                   ) : (
+                      <div>
+                        <p className="text-[10px] text-zinc-500">Target</p>
+                        <p className="font-mono text-zinc-300">${trade.targetPrice || '-'}</p>
+                      </div>
+                   )}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-zinc-800 pt-3 text-xs">
+                   <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${trade.disciplineScore >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                      <span className="text-zinc-400">Score: {trade.disciplineScore}</span>
+                   </div>
+                   <span className={`rounded-full px-2 py-0.5 text-[10px] ${
+                      trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-500'
+                   }`}>
+                      {trade.status}
+                   </span>
+                </div>
+             </div>
+          ))}
+       </div>
+
+       {/* Add Trade Modal */}
+       {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 p-6">
+              <h2 className="text-xl font-bold text-white">Log New Trade</h2>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-zinc-400 hover:text-white">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleInitialSubmit} className="p-6 space-y-6">
+              
+              {willExceedLimit && (
+                 <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 flex gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-amber-500">Daily Trade Limit Warning</p>
+                      <p className="text-xs text-amber-400/80 mt-1">
+                        You have already used {currentDailyCount} trade slots for this day. 
+                        Opening this trade (0.5 cost) will exceed your limit of {userSettings.maxTradesPerDay}.
+                        <br/>
+                        <span className="opacity-70 italic">Discipline is choosing what you want most over what you want now.</span>
+                      </p>
+                    </div>
+                 </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Ticker Symbol</label>
+                   <input 
+                     required
+                     type="text" 
+                     placeholder="e.g. SPY"
+                     value={newTrade.ticker || ''}
+                     onChange={e => setNewTrade({...newTrade, ticker: e.target.value.toUpperCase()})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none placeholder-zinc-600"
+                   />
+                </div>
+                 <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Entry Date & Time</label>
+                   <input 
+                     required
+                     type="datetime-local" 
+                     value={newTrade.entryDate?.slice(0, 16)}
+                     onChange={e => setNewTrade({...newTrade, entryDate: e.target.value})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white">{trade.ticker}</h3>
-                  <p className="text-xs text-zinc-500">{new Date(trade.entryDate).toLocaleDateString()}</p>
+                   <label className="mb-2 block text-xs text-zinc-400">Direction</label>
+                   <div className="flex rounded-lg bg-zinc-800 p-1 border border-zinc-700">
+                      {DIRECTIONS.map(d => (
+                        <button
+                          type="button"
+                          key={d}
+                          onClick={() => setNewTrade({...newTrade, direction: d})}
+                          className={`flex-1 rounded py-1.5 text-xs font-medium transition-colors ${
+                            newTrade.direction === d ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+                <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Option Type</label>
+                    <div className="flex rounded-lg bg-zinc-800 p-1 border border-zinc-700">
+                      {OPTION_TYPES.map(o => (
+                        <button
+                          type="button"
+                          key={o}
+                          onClick={() => setNewTrade({...newTrade, optionType: o})}
+                          className={`flex-1 rounded py-1.5 text-xs font-medium transition-colors ${
+                            newTrade.optionType === o ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          {o}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+                <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Entry Price</label>
+                   <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
+                      <input 
+                        required
+                        type="number" step="0.01"
+                        placeholder="0.00"
+                        value={newTrade.entryPrice || ''}
+                        onChange={e => setNewTrade({...newTrade, entryPrice: parseFloat(e.target.value)})}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                   </div>
+                </div>
+                <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Quantity</label>
+                   <input 
+                     required
+                     type="number"
+                     min="1"
+                     value={newTrade.quantity}
+                     onChange={e => setNewTrade({...newTrade, quantity: parseInt(e.target.value)})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   />
+                </div>
+                
+                 <div>
+                   <label className="mb-2 block text-xs text-emerald-400 flex items-center gap-1">
+                     <Target className="h-3 w-3" /> Target Price
+                   </label>
+                   <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
+                      <input 
+                        type="number" step="0.01"
+                        value={newTrade.targetPrice || ''}
+                        onChange={e => setNewTrade({...newTrade, targetPrice: parseFloat(e.target.value)})}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                   </div>
+                   <p className="text-[10px] text-zinc-500 mt-1">Default: {userSettings.defaultTargetPercent}% gain</p>
+                </div>
+                <div>
+                   <label className="mb-2 block text-xs text-rose-400 flex items-center gap-1">
+                     <ShieldAlert className="h-3 w-3" /> Stop Loss Price
+                   </label>
+                   <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
+                      <input 
+                        type="number" step="0.01"
+                        value={newTrade.stopLossPrice || ''}
+                        onChange={e => setNewTrade({...newTrade, stopLossPrice: parseFloat(e.target.value)})}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-4 py-2 text-white focus:border-rose-500 focus:outline-none"
+                      />
+                   </div>
+                    <p className="text-[10px] text-zinc-500 mt-1">Default: {userSettings.defaultStopLossPercent}% loss</p>
+                </div>
+
+                <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Strike Price (Optional)</label>
+                   <input 
+                     type="number" step="0.5"
+                     value={newTrade.strikePrice || ''}
+                     onChange={e => setNewTrade({...newTrade, strikePrice: parseFloat(e.target.value)})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   />
+                </div>
+                 <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Expiration (Optional)</label>
+                   <input 
+                     type="date"
+                     value={newTrade.expirationDate || ''}
+                     onChange={e => setNewTrade({...newTrade, expirationDate: e.target.value})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   />
+                </div>
+                
+                <div className="md:col-span-2">
+                   <label className="mb-2 block text-xs text-zinc-400">Current Emotion</label>
+                   <div className="flex flex-wrap gap-2">
+                      {EMOTIONS.map(em => (
+                        <button
+                          type="button"
+                          key={em}
+                          onClick={() => setNewTrade({...newTrade, entryEmotion: em})}
+                          className={`rounded-full px-3 py-1 text-xs border transition-colors ${
+                             newTrade.entryEmotion === em 
+                              ? 'bg-indigo-600 border-indigo-500 text-white'
+                              : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
+                          }`}
+                        >
+                          {em}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="md:col-span-2">
+                   <label className="mb-2 block text-xs text-zinc-400">Notes / Strategy</label>
+                   <textarea 
+                     rows={3}
+                     placeholder="Why did you take this trade? What did you see?"
+                     value={newTrade.notes || ''}
+                     onChange={e => setNewTrade({...newTrade, notes: e.target.value})}
+                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                   />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                 {getOutcomeIcon(trade)}
-                 <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
-                   {trade.status}
-                 </span>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-xs text-zinc-500">Contract</p>
-                <p className="text-sm font-medium text-zinc-300">
-                  {trade.strikePrice ? `${trade.strikePrice}${trade.optionType.charAt(0)}` : 'Share'}
-                </p>
+              <div className="flex justify-end pt-4">
+                 <button 
+                  type="submit"
+                  className="rounded-lg bg-indigo-600 px-8 py-3 font-semibold text-white transition-transform hover:scale-105 hover:bg-indigo-500"
+                 >
+                   Review Checklist & Save
+                 </button>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-zinc-500">P&L</p>
-                <p className={`text-sm font-mono font-bold ${
-                  (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-500'
-                }`}>
-                  {trade.pnl ? (trade.pnl > 0 ? '+' : '') + '$' + trade.pnl.toFixed(0) : '---'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-zinc-800 pt-3">
-              <div className="flex items-center gap-2">
-                <div className={`h-1.5 w-1.5 rounded-full ${trade.disciplineScore >= 80 ? 'bg-emerald-500' : trade.disciplineScore >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
-                <span className="text-xs text-zinc-400">Score: {trade.disciplineScore}</span>
-              </div>
-              <div className="text-xs text-zinc-500">
-                {trade.direction}
-              </div>
-            </div>
+            </form>
           </div>
-        ))}
+        </div>
+       )}
 
-        {trades.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 py-12 text-center">
-            <div className="mb-4 rounded-full bg-zinc-900 p-4">
-              <Activity className="h-6 w-6 text-zinc-600" />
-            </div>
-            <h3 className="text-lg font-medium text-white">No trades logged yet</h3>
-            <p className="mt-1 text-sm text-zinc-500 max-w-sm">
-              Start your journey by logging your first trade. Remember to follow your discipline checklist.
-            </p>
-            <button 
-              onClick={handleAddClick}
-              className="mt-4 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-            >
-              Log First Trade
-            </button>
-          </div>
-        )}
-      </div>
+       {/* Discipline Guard Overlay */}
+       {showDisciplineGuard && (
+         <DisciplineGuard 
+           onProceed={handleDisciplineConfirmed}
+           onCancel={() => setShowDisciplineGuard(false)}
+         />
+       )}
 
-      {/* Discipline Guard Modal */}
-      {showGuard && (
-        <DisciplineGuard 
-          onProceed={handleGuardProceed}
-          onCancel={() => setShowGuard(false)}
-        />
-      )}
-
-      {/* Details/Edit Modal */}
-      {selectedTrade && (
-        <TradeDetailsModal 
-          trade={selectedTrade}
-          userSettings={userSettings}
-          onClose={handleModalClose}
-          onUpdate={handleModalUpdate}
-          onDelete={handleModalDelete}
-          initialIsEditing={isNewTrade}
-        />
-      )}
+       {/* Trade Details Modal */}
+       {selectedTrade && (
+         <TradeDetailsModal 
+           trade={selectedTrade} 
+           allTrades={trades}
+           userSettings={userSettings}
+           onClose={() => setSelectedTrade(null)} 
+           onUpdate={onUpdateTrade}
+           onDelete={() => {
+             onDeleteTrade(selectedTrade.id);
+             setSelectedTrade(null);
+           }}
+         />
+       )}
     </div>
   );
 };

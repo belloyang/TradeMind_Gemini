@@ -1,6 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Calendar as CalendarIcon, Target, DollarSign } from 'lucide-react';
-import { Trade } from '../types';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Calendar as CalendarIcon, Target, DollarSign, X } from 'lucide-react';
+import { Trade, TradeStatus } from '../types';
+
+// Helper to format contract name (reused)
+const formatContractName = (ticker: string, strike?: number, type?: string, dateStr?: string) => {
+  if (!strike || !type || !dateStr) return ticker;
+  try {
+    const d = new Date(dateStr);
+    const yy = d.getFullYear().toString().slice(-2);
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+    const dd = d.getDate().toString().padStart(2, '0');
+    const typeChar = type.charAt(0).toUpperCase();
+    return `${ticker} ${strike}${typeChar} ${yy}${mm}${dd}`;
+  } catch (e) {
+    return ticker;
+  }
+};
 
 interface AnalyticsProps {
   trades: Trade[];
@@ -8,6 +23,7 @@ interface AnalyticsProps {
 
 const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDayDetails, setSelectedDayDetails] = useState<{date: Date, trades: Trade[]} | null>(null);
 
   // Helper to get days in month
   const getDaysInMonth = (date: Date) => {
@@ -21,6 +37,21 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + (direction === 'next' ? 1 : -1), 1));
+  };
+
+  const handleDayClick = (day: number) => {
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dayTrades = trades.filter(t => {
+      const tDate = new Date(t.entryDate);
+      return tDate.getDate() === day && 
+             tDate.getMonth() === currentDate.getMonth() && 
+             tDate.getFullYear() === currentDate.getFullYear();
+    });
+    
+    // Sort trades by time (descending)
+    dayTrades.sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
+
+    setSelectedDayDetails({ date, trades: dayTrades });
   };
 
   // Aggregate data for the current month
@@ -89,7 +120,8 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       days.push(
         <div 
           key={`day-${day}`} 
-          className={`group relative flex min-h-[100px] flex-col justify-between border-r border-b border-zinc-800 p-3 transition-all hover:bg-zinc-800/50 
+          onClick={() => handleDayClick(day)}
+          className={`group relative flex min-h-[100px] cursor-pointer flex-col justify-between border-r border-b border-zinc-800 p-3 transition-all hover:bg-zinc-800/50 
             ${isProfitable ? 'bg-emerald-900/5' : ''} 
             ${isLoss ? 'bg-rose-900/5' : ''}
           `}
@@ -209,6 +241,80 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
           <span>Loss Day</span>
         </div>
       </div>
+
+      {/* Day Details Modal */}
+      {selectedDayDetails && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setSelectedDayDetails(null)}
+        >
+          <div 
+            className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 p-4">
+              <h3 className="text-lg font-bold text-white">
+                {selectedDayDetails.date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+              </h3>
+              <button 
+                onClick={() => setSelectedDayDetails(null)}
+                className="rounded-full p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="max-h-[60vh] overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-700">
+              {selectedDayDetails.trades.length === 0 ? (
+                <div className="py-8 text-center text-zinc-500">
+                  <p>No trades recorded on this day.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedDayDetails.trades.map(trade => (
+                    <div key={trade.id} className="rounded-lg border border-zinc-800 bg-zinc-800/30 p-3">
+                       <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-white">
+                            {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${trade.direction === 'Long' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                            {trade.direction.toUpperCase()}
+                          </span>
+                       </div>
+                       <div className="flex items-center justify-between text-sm">
+                          <span className="text-zinc-500">
+                             {new Date(trade.entryDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs ${trade.status === TradeStatus.OPEN ? 'text-blue-400' : 'text-zinc-500'}`}>
+                              {trade.status}
+                            </span>
+                            <span className={`font-mono font-medium ${
+                              (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+                            }`}>
+                              {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toLocaleString()}` : '---'}
+                            </span>
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="border-t border-zinc-800 bg-zinc-900/50 p-3 text-center">
+               <p className="text-xs text-zinc-500">
+                 Total Day P&L: <span className={`font-mono font-bold ${
+                   (selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0)) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                 }`}>
+                   {(selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0)) >= 0 ? '+' : ''}
+                   ${selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0).toLocaleString()}
+                 </span>
+               </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
