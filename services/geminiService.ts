@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { Trade } from "../types";
+import { Trade, OptionType } from "../types";
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -9,6 +9,33 @@ const getClient = () => {
   }
   return new GoogleGenAI({ apiKey });
 };
+
+// --- Polygon Integration Helpers ---
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY; 
+
+const formatPolygonOptionTicker = (trade: Trade): string | null => {
+  if (!trade.expirationDate || !trade.strikePrice || !trade.optionType) return null;
+
+  try {
+    const exp = new Date(trade.expirationDate);
+    // Adjust for timezone to ensure we get the correct date string
+    const userTimezoneOffset = exp.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(exp.getTime() + userTimezoneOffset);
+
+    const yy = adjustedDate.getFullYear().toString().slice(-2);
+    const mm = (adjustedDate.getMonth() + 1).toString().padStart(2, '0');
+    const dd = adjustedDate.getDate().toString().padStart(2, '0');
+    const type = trade.optionType === OptionType.CALL ? 'C' : 'P';
+    
+    const strikeScaled = Math.round(trade.strikePrice * 1000);
+    const strikePadded = strikeScaled.toString().padStart(8, '0');
+
+    return `O:${trade.ticker}${yy}${mm}${dd}${type}${strikePadded}`;
+  } catch (e) {
+    return null;
+  }
+};
+// ----------------------------------
 
 export const getTradingCoaching = async (trades: Trade[]): Promise<string> => {
   const client = getClient();
@@ -51,6 +78,36 @@ export const getTradingCoaching = async (trades: Trade[]): Promise<string> => {
 };
 
 export const getPriceEstimate = async (trade: Trade): Promise<{ text: string; price?: number; sources?: {title: string, uri: string}[] }> => {
+  
+  // 1. Try Polygon.io First (If configured)
+  if (POLYGON_API_KEY) {
+    try {
+      const isOption = trade.strikePrice && trade.optionType && trade.expirationDate;
+      let ticker = trade.ticker;
+      if (isOption) {
+        const polyTicker = formatPolygonOptionTicker(trade);
+        if (polyTicker) ticker = polyTicker;
+      }
+
+      // Using Previous Close endpoint (works on Free Tier)
+      const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        const result = data.results[0];
+        return {
+          text: `Verified Market Data (Polygon.io)\nClose Price: $${result.c}\nHigh: $${result.h} | Low: $${result.l}`,
+          price: result.c,
+          sources: [{ title: 'Polygon.io Market Data', uri: `https://polygon.io/symbol/${ticker}` }]
+        };
+      }
+    } catch (e) {
+      console.warn("Polygon fetch failed, falling back to AI", e);
+    }
+  }
+
+  // 2. Fallback to Gemini Search Grounding
   const client = getClient();
   if (!client) return { text: "API Key configuration missing." };
 
