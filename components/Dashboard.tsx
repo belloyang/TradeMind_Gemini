@@ -52,6 +52,18 @@ const Dashboard: React.FC<DashboardProps> = ({ trades, metrics, initialCapital }
     return Object.keys(stats).map(key => ({ name: key, value: stats[key] }));
   }, [trades]);
 
+  const setupPerformance = useMemo(() => {
+    const stats: Record<string, number> = {};
+    trades.forEach(t => {
+       if (t.pnl) {
+         const key = t.setup || "No Setup";
+         stats[key] = (stats[key] || 0) + t.pnl;
+       }
+    });
+    // Filter out "No Setup" if there are no trades without setups, or keep it to show untagged
+    return Object.keys(stats).map(key => ({ name: key, value: stats[key] }));
+  }, [trades]);
+
   const currentBalance = initialCapital + metrics.totalPnL;
   const returnPercentage = ((currentBalance - initialCapital) / initialCapital) * 100;
 
@@ -184,6 +196,47 @@ const Dashboard: React.FC<DashboardProps> = ({ trades, metrics, initialCapital }
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+
+         {/* Setup Performance */}
+         <div className="col-span-1 lg:col-span-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+          <h3 className="mb-6 text-sm font-semibold text-zinc-200">P&L by Setup / Pattern</h3>
+          {setupPerformance.length === 0 || (setupPerformance.length === 1 && setupPerformance[0].name === "No Setup") ? (
+             <div className="flex h-[200px] items-center justify-center text-zinc-500">
+               <p>Tag your trades with a "Setup" (e.g. Bull Flag) to see analytics here.</p>
+             </div>
+          ) : (
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={setupPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#71717a" 
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    stroke="#71717a" 
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', color: '#f4f4f5' }}
+                    cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                  />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    {setupPerformance.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#10b981' : '#f43f5e'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
     </div>

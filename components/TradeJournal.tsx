@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Search, ExternalLink, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Layers, Zap, Info } from 'lucide-react';
+import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Search, ExternalLink, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Layers, Zap, Info, Tag } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
 import { DIRECTIONS, OPTION_TYPES, EMOTIONS, POPULAR_TICKERS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
@@ -97,6 +97,13 @@ const TradeDetailsModal: React.FC<{
   // Market Data Check State
   const [checkingPrice, setCheckingPrice] = useState(false);
   const [marketData, setMarketData] = useState<{ text: string; price?: number; sources?: {title: string, uri: string}[] } | null>(null);
+
+  // Setup Autocomplete State
+  const [setupSuggestions, setSetupSuggestions] = useState<string[]>([]);
+  const [showSetupSuggestions, setShowSetupSuggestions] = useState(false);
+
+  // Collect unique setups for suggestions
+  const availableSetups: string[] = Array.from(new Set(allTrades.map(t => t.setup).filter((s): s is string => !!s)));
 
   const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
     { key: 'maxTradesRespected', label: 'Daily Trade Limit Respected' },
@@ -382,6 +389,9 @@ const TradeDetailsModal: React.FC<{
                 {trade.direction.toUpperCase()}
               </span>
               <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300">{trade.optionType}</span>
+              {trade.setup && (
+                <span className="rounded bg-indigo-900/50 border border-indigo-500/30 px-2 py-0.5 text-indigo-300">{trade.setup}</span>
+              )}
               <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(trade.entryDate).toLocaleDateString()}</span>
             </div>
           </div>
@@ -475,6 +485,45 @@ const TradeDetailsModal: React.FC<{
                    >
                      {OPTION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
                    </select>
+                </div>
+                 <div>
+                   <label className="mb-2 block text-xs text-zinc-400">Setup / Pattern</label>
+                   <div className="relative">
+                      <input 
+                        type="text"
+                        value={editForm.setup || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setEditForm({...editForm, setup: val});
+                          if(val) {
+                             const filtered = availableSetups.filter(s => s.toLowerCase().includes(val.toLowerCase()));
+                             setSetupSuggestions(filtered);
+                             setShowSetupSuggestions(true);
+                          } else {
+                             setShowSetupSuggestions(false);
+                          }
+                        }}
+                        onBlur={() => setTimeout(() => setShowSetupSuggestions(false), 200)}
+                        placeholder="e.g. Bull Flag"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                      {showSetupSuggestions && setupSuggestions.length > 0 && (
+                          <div className="absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
+                              {setupSuggestions.map(s => (
+                                <div 
+                                  key={s}
+                                  onClick={() => {
+                                    setEditForm({...editForm, setup: s});
+                                    setShowSetupSuggestions(false);
+                                  }}
+                                  className="cursor-pointer px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-600 hover:text-white"
+                                >
+                                  {s}
+                                </div>
+                              ))}
+                          </div>
+                      )}
+                   </div>
                 </div>
                 <div>
                   <label className="mb-2 block text-xs text-zinc-400">Entry Date</label>
@@ -766,10 +815,15 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
   const [loadingVix, setLoadingVix] = useState(false);
   const [showVixWarning, setShowVixWarning] = useState(false);
 
-  // Ticker Auto-complete state
+  // Ticker & Setup Auto-complete state
   const [tickerSuggestions, setTickerSuggestions] = useState<string[]>([]);
   const [showTickerSuggestions, setShowTickerSuggestions] = useState(false);
   const [availableTickers, setAvailableTickers] = useState<string[]>(POPULAR_TICKERS);
+  
+  const [setupSuggestions, setSetupSuggestions] = useState<string[]>([]);
+  const [showSetupSuggestions, setShowSetupSuggestions] = useState(false);
+  const availableSetups: string[] = Array.from(new Set(trades.map(t => t.setup).filter((s): s is string => !!s)));
+
 
   // New trade form state
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
@@ -818,6 +872,23 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
   const selectTicker = (ticker: string) => {
     setNewTrade({...newTrade, ticker});
     setShowTickerSuggestions(false);
+  };
+
+  const handleSetupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+     const val = e.target.value;
+     setNewTrade({...newTrade, setup: val});
+     if(val) {
+        const filtered = availableSetups.filter(s => s.toLowerCase().includes(val.toLowerCase()));
+        setSetupSuggestions(filtered);
+        setShowSetupSuggestions(true);
+     } else {
+        setShowSetupSuggestions(false);
+     }
+  };
+
+  const selectSetup = (setup: string) => {
+     setNewTrade({...newTrade, setup});
+     setShowSetupSuggestions(false);
   };
 
   const handleStartAddTrade = () => {
@@ -900,6 +971,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
       targetPrice: parseFloat(target?.toFixed(2) || '0'),
       stopLossPrice: parseFloat(stop?.toFixed(2) || '0'),
       notes: newTrade.notes || '',
+      setup: newTrade.setup || undefined,
       entryEmotion: newTrade.entryEmotion as Emotion,
       checklist: newTrade.checklist!,
       disciplineScore: newTrade.disciplineScore || 0,
@@ -1162,6 +1234,39 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
                    </div>
                    
                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1">Setup / Pattern (Optional)</label>
+                      <div className="relative">
+                        <input 
+                          type="text"
+                          className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                          value={newTrade.setup || ''}
+                          onChange={handleSetupChange}
+                          onFocus={() => {
+                             if(availableSetups.length > 0) {
+                               setSetupSuggestions(availableSetups);
+                               setShowSetupSuggestions(true);
+                             }
+                          }}
+                          onBlur={() => setTimeout(() => setShowSetupSuggestions(false), 200)}
+                          placeholder="e.g. Bull Flag, Earnings Play, Reversal"
+                        />
+                        {showSetupSuggestions && setupSuggestions.length > 0 && (
+                            <div className="absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
+                               {setupSuggestions.map(s => (
+                                 <div 
+                                   key={s}
+                                   onClick={() => selectSetup(s)}
+                                   className="cursor-pointer px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-600 hover:text-white"
+                                 >
+                                   {s}
+                                 </div>
+                               ))}
+                            </div>
+                         )}
+                      </div>
+                   </div>
+
+                   <div>
                       <label className="text-xs text-zinc-400 block mb-1">Notes</label>
                       <textarea 
                         rows={3}
@@ -1225,7 +1330,14 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
                        {new Date(trade.entryDate).toLocaleDateString()}
                      </td>
                      <td className="px-6 py-4 font-bold text-white">
-                       {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
+                       <div className="flex flex-col">
+                         <span>{formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}</span>
+                         {trade.setup && (
+                           <span className="flex items-center gap-1 text-[10px] text-zinc-500 mt-1 font-normal">
+                             <Tag className="h-3 w-3" /> {trade.setup}
+                           </span>
+                         )}
+                       </div>
                      </td>
                      <td className="px-6 py-4 text-zinc-300">
                        <span className={`inline-block rounded px-2 py-1 text-xs font-bold ${trade.direction === TradeDirection.LONG ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>

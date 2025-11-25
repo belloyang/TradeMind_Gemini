@@ -200,6 +200,29 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
+  const handleImportProfile = (importedProfile: UserProfile) => {
+    if (!activeUserId) return;
+    
+    // Validate key fields
+    if (!importedProfile.trades || !importedProfile.settings || !importedProfile.name) {
+      alert("Invalid backup file. Missing required profile data.");
+      return;
+    }
+
+    // Confirm overwrite
+    if (window.confirm(`This will overwrite the current profile for "${activeUser?.name}" with data from "${importedProfile.name}". This cannot be undone. Are you sure?`)) {
+       updateActiveUser(u => ({
+         ...importedProfile,
+         id: u.id, // Keep the current ID/auth reference
+         password: u.password, // Keep current security credentials
+         securityQuestion: u.securityQuestion,
+         securityAnswer: u.securityAnswer
+       }));
+       alert("Profile restored successfully.");
+       setActiveTab('dashboard');
+    }
+  };
+
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
@@ -374,15 +397,10 @@ const App: React.FC = () => {
             <Analytics trades={activeUser.trades} />
           ) : (
             <SettingsPage 
-              trades={activeUser.trades}
-              currentBalance={activeUser.initialCapital + metrics.totalPnL}
-              initialCapital={activeUser.initialCapital}
-              tradeCount={activeUser.trades.length}
-              startDate={activeUser.startDate}
-              archives={activeUser.archives}
-              userSettings={activeUser.settings}
+              userProfile={activeUser}
               onUpdateSettings={handleUpdateSettings}
               onReset={handleResetAccount}
+              onImportProfile={handleImportProfile}
             />
           )}
         </div>

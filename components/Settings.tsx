@@ -1,20 +1,15 @@
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
-  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download, Upload, FileJson
 } from 'lucide-react';
-import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings } from '../types';
+import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings, UserProfile } from '../types';
 
 interface SettingsProps {
-  trades: Trade[];
-  currentBalance: number;
-  initialCapital: number;
-  tradeCount: number;
-  startDate: string;
-  archives: ArchivedSession[];
-  userSettings: UserSettings;
+  userProfile: UserProfile;
   onUpdateSettings: (settings: UserSettings) => void;
   onReset: (newCapital: number) => void;
+  onImportProfile: (profile: UserProfile) => void;
 }
 
 const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
@@ -65,6 +60,9 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
                 {trade.direction.toUpperCase()}
               </span>
               <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300">{trade.optionType}</span>
+              {trade.setup && (
+                 <span className="rounded bg-indigo-900/50 border border-indigo-500/30 px-2 py-0.5 text-indigo-300">{trade.setup}</span>
+              )}
               <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(trade.entryDate).toLocaleDateString()}</span>
             </div>
           </div>
@@ -177,20 +175,20 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
 };
 
 const Settings: React.FC<SettingsProps> = ({ 
-  trades,
-  currentBalance, 
-  initialCapital, 
-  tradeCount, 
-  startDate,
-  archives, 
-  userSettings,
+  userProfile,
   onUpdateSettings,
-  onReset 
+  onReset,
+  onImportProfile
 }) => {
+  const { trades, initialCapital, startDate, archives, settings: userSettings } = userProfile;
+  const currentTotalPnL = trades.filter(t => t.pnl !== undefined).reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const currentBalance = initialCapital + currentTotalPnL;
+  
   const [newCapital, setNewCapital] = useState<string>(initialCapital.toString());
   const [showConfirm, setShowConfirm] = useState(false);
   const [viewingArchive, setViewingArchive] = useState<ArchivedSession | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleReset = () => {
     onReset(parseFloat(newCapital) || 0);
@@ -204,7 +202,7 @@ const Settings: React.FC<SettingsProps> = ({
     }
 
     const headers = [
-      "Date", "Ticker", "Direction", "Type", "Strike", "Expiration", 
+      "Date", "Ticker", "Direction", "Type", "Strike", "Expiration", "Setup",
       "Entry Price", "Exit Price", "Quantity", "P&L", "Status", "Notes", "Entry Emotion", "Discipline Score"
     ];
 
@@ -220,6 +218,7 @@ const Settings: React.FC<SettingsProps> = ({
           t.optionType,
           t.strikePrice || '',
           t.expirationDate || '',
+          t.setup || '',
           t.entryPrice,
           t.exitPrice || '',
           t.quantity,
@@ -236,11 +235,40 @@ const Settings: React.FC<SettingsProps> = ({
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `trademind_journal_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute('download', `trademind_history_${new Date().toISOString().slice(0,10)}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportBackup = () => {
+    const dataStr = JSON.stringify(userProfile, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `trademind_backup_${userProfile.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        onImportProfile(json);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (error) {
+        alert("Failed to parse JSON file.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   if (viewingArchive) {
@@ -392,17 +420,58 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       </div>
 
+      {/* Data Management Section */}
+      <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Data Management</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="space-y-3">
+              <h4 className="text-sm font-medium text-zinc-300">Backup & History</h4>
+              <p className="text-xs text-zinc-500">Download your data to prevent loss or to analyze in other tools.</p>
+              <div className="flex flex-col gap-2">
+                 <button 
+                  onClick={handleExportBackup}
+                  className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                >
+                  <span className="flex items-center gap-2"><FileJson className="h-4 w-4" /> Download Full Backup (JSON)</span>
+                  <Download className="h-4 w-4 text-zinc-500" />
+                </button>
+                <button 
+                  onClick={handleExportCSV}
+                  className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                >
+                  <span className="flex items-center gap-2"><Download className="h-4 w-4" /> Export Trade History (CSV)</span>
+                  <Download className="h-4 w-4 text-zinc-500" />
+                </button>
+              </div>
+           </div>
+
+           <div className="space-y-3">
+              <h4 className="text-sm font-medium text-zinc-300">Restore Data</h4>
+              <p className="text-xs text-zinc-500">Restore a previously saved JSON backup file. <span className="text-rose-400">Warning: Overwrites current profile.</span></p>
+              <div className="relative">
+                 <input 
+                   type="file" 
+                   ref={fileInputRef}
+                   accept=".json"
+                   onChange={handleFileChange}
+                   className="hidden"
+                   id="restore-upload"
+                 />
+                 <label 
+                   htmlFor="restore-upload"
+                   className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-600 bg-zinc-800/30 px-4 py-8 text-sm text-zinc-400 hover:border-indigo-500 hover:bg-indigo-500/5 hover:text-indigo-400 transition-all"
+                 >
+                   <Upload className="h-5 w-5" />
+                   <span>Click to Upload Backup JSON</span>
+                 </label>
+              </div>
+           </div>
+        </div>
+      </div>
+
       {/* Current Session Manager */}
       <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Active Journal Session</h3>
-          <button 
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-zinc-700 hover:text-indigo-300 transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" /> Export CSV
-          </button>
-        </div>
+        <h3 className="text-lg font-semibold text-white mb-4">Current Session Status</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
@@ -411,7 +480,7 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
           <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
             <p className="text-xs text-zinc-400 mb-1">Total Trades</p>
-            <p className="text-sm font-mono text-zinc-200">{tradeCount}</p>
+            <p className="text-sm font-mono text-zinc-200">{trades.length}</p>
           </div>
           <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
             <p className="text-xs text-zinc-400 mb-1">Current Balance</p>

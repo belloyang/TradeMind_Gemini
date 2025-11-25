@@ -36,8 +36,9 @@ export interface Trade {
   ticker: string;
   direction: TradeDirection;
   optionType: OptionType;
+  setup?: string; // New: Strategy/Setup Name (e.g. "Bull Flag")
   entryDate: string;
-  exitDate?: string; // New: Track when trade was closed
+  exitDate?: string;
   expirationDate?: string;
   status: TradeStatus;
   entryPrice: number;
@@ -56,7 +57,7 @@ export interface Trade {
   entryEmotion: Emotion;
   exitEmotion?: Emotion;
   checklist: DisciplineChecklist;
-  disciplineScore: number; // 0 to 100 based on checklist
+  disciplineScore: number;
   violationReason?: string;
 }
 
@@ -65,7 +66,7 @@ export interface Metrics {
   winRate: number;
   totalPnL: number;
   averagePnL: number;
-  disciplineScore: number; // Average discipline score
+  disciplineScore: number;
   maxDrawdown: number;
 }
 
