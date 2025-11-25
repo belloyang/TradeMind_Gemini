@@ -102,3 +102,39 @@ export const getPriceEstimate = async (trade: Trade): Promise<{ text: string; pr
     return { text: "Unable to search market data at this time." };
   }
 };
+
+export const getCurrentVix = async (): Promise<{ value: number; timestamp: string } | null> => {
+  const client = getClient();
+  if (!client) return null;
+
+  const prompt = `
+    Find the current CBOE Volatility Index (VIX) value right now.
+    Return ONLY the numeric value (e.g., 18.45). Do not add any text.
+  `;
+
+  try {
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const text = response.text?.trim();
+    if (!text) return null;
+
+    // Try to parse the first number found
+    const match = text.match(/([0-9]+\.?[0-9]*)/);
+    if (match) {
+      return {
+        value: parseFloat(match[1]),
+        timestamp: new Date().toISOString()
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error("VIX Fetch Error:", error);
+    return null;
+  }
+};

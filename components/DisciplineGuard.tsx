@@ -1,22 +1,31 @@
 import React, { useState } from 'react';
-import { ShieldCheck, AlertTriangle, Check } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Check, X, Info } from 'lucide-react';
 import { DisciplineChecklist } from '../types';
 
 interface DisciplineGuardProps {
   onProceed: (checklist: DisciplineChecklist, score: number) => void;
   onCancel: () => void;
+  currentDailyTrades: number;
+  maxDailyTrades: number;
 }
 
-const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel }) => {
+const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, currentDailyTrades, maxDailyTrades }) => {
+  // Logic: Opening a new trade adds 0.5 to activity. Check if adding it exceeds limit.
+  // NOTE: If we assume checking "Is this valid", we check if CURRENT + 0.5 <= MAX.
+  const isMaxTradesRespected = (currentDailyTrades + 0.5) <= maxDailyTrades;
+
   const [checks, setChecks] = useState<DisciplineChecklist>({
     strategyMatch: false,
     riskDefined: false,
     sizeWithinLimits: false,
     ivConditionsMet: false,
     emotionalStateCheck: false,
+    maxTradesRespected: isMaxTradesRespected,
   });
 
   const toggleCheck = (key: keyof DisciplineChecklist) => {
+    // maxTradesRespected is read-only, determined by props
+    if (key === 'maxTradesRespected') return;
     setChecks(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -46,6 +55,33 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel }
         </p>
 
         <div className="space-y-3">
+           {/* Automatic System Check */}
+          <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+            isMaxTradesRespected 
+              ? 'border-zinc-800 bg-zinc-900/50' 
+              : 'border-rose-900/50 bg-rose-900/10'
+          }`}>
+            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+              isMaxTradesRespected ? 'border-emerald-500 bg-emerald-500' : 'border-rose-500 bg-rose-500'
+            }`}>
+              {isMaxTradesRespected ? <Check className="h-3 w-3 text-white" /> : <X className="h-3 w-3 text-white" />}
+            </div>
+            <div className="flex-1">
+              <span className={`text-sm block ${isMaxTradesRespected ? 'text-zinc-300' : 'text-rose-400 font-medium'}`}>
+                I haven't reached the max trade of the day
+              </span>
+              <span className="text-[10px] text-zinc-500 block mt-0.5">
+                Current: <span className="text-white font-mono">{currentDailyTrades}</span> / Limit: <span className="text-white font-mono">{maxDailyTrades}</span>
+              </span>
+            </div>
+            {!isMaxTradesRespected && (
+               <div title="Daily Limit Exceeded">
+                  <AlertTriangle className="h-4 w-4 text-rose-500" />
+               </div>
+            )}
+          </div>
+
+          {/* Manual Checks */}
           <CheckItem 
             label="Is this trade in my written strategy plan?" 
             checked={checks.strategyMatch} 
@@ -74,9 +110,16 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel }
         </div>
 
         {!allChecked && (
-           <div className="mt-6 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-amber-500">
-             <AlertTriangle className="h-5 w-5 shrink-0" />
-             <p className="text-xs font-medium">Proceeding with unchecked items will record a rule violation and lower your Discipline Score.</p>
+           <div className="mt-6 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-amber-500">
+             <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+             <div>
+                <p className="text-xs font-medium">Proceeding with unchecked items will record a rule violation.</p>
+                {!isMaxTradesRespected && (
+                   <p className="text-[10px] mt-1 opacity-80">
+                     Note: You have exceeded your daily trade limit.
+                   </p>
+                )}
+             </div>
            </div>
         )}
 

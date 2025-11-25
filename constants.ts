@@ -41,6 +41,7 @@ export const INITIAL_TRADES: Trade[] = [
       sizeWithinLimits: true,
       ivConditionsMet: true,
       emotionalStateCheck: true,
+      maxTradesRespected: true,
     },
     disciplineScore: 100,
   },
@@ -67,6 +68,7 @@ export const INITIAL_TRADES: Trade[] = [
       sizeWithinLimits: true,
       ivConditionsMet: false, // Violation
       emotionalStateCheck: false, // Violation
+      maxTradesRespected: true,
     },
     disciplineScore: 40,
     violationReason: 'Chasing momentum without strategy alignment',
@@ -92,6 +94,7 @@ export const INITIAL_TRADES: Trade[] = [
       sizeWithinLimits: true,
       ivConditionsMet: true,
       emotionalStateCheck: true,
+      maxTradesRespected: true,
     },
     disciplineScore: 100,
   },

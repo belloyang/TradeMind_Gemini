@@ -28,6 +28,7 @@ export interface DisciplineChecklist {
   sizeWithinLimits: boolean;
   ivConditionsMet: boolean;
   emotionalStateCheck: boolean;
+  maxTradesRespected: boolean;
 }
 
 export interface Trade {

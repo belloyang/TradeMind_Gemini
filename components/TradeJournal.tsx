@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Search, ExternalLink, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Layers } from 'lucide-react';
+import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Save, Trash2, StopCircle, RefreshCcw, Search, ExternalLink, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Layers, Zap, Info } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
 import { DIRECTIONS, OPTION_TYPES, EMOTIONS, POPULAR_TICKERS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
-import { getPriceEstimate } from '../services/geminiService';
+import { getPriceEstimate, getCurrentVix } from '../services/geminiService';
 
 interface TradeJournalProps {
   trades: Trade[];
@@ -99,6 +99,7 @@ const TradeDetailsModal: React.FC<{
   const [marketData, setMarketData] = useState<{ text: string; price?: number; sources?: {title: string, uri: string}[] } | null>(null);
 
   const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
+    { key: 'maxTradesRespected', label: 'Daily Trade Limit Respected' },
     { key: 'strategyMatch', label: 'In Strategy Plan' },
     { key: 'riskDefined', label: 'Risk Defined' },
     { key: 'sizeWithinLimits', label: 'Size Within Limits' },
@@ -760,16 +761,84 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   
+  // VIX State
+  const [vixData, setVixData] = useState<{value: number, timestamp: string} | null>(null);
+  const [loadingVix, setLoadingVix] = useState(false);
+  const [showVixWarning, setShowVixWarning] = useState(false);
+
+  // Ticker Auto-complete state
+  const [tickerSuggestions, setTickerSuggestions] = useState<string[]>([]);
+  const [showTickerSuggestions, setShowTickerSuggestions] = useState(false);
+  const [availableTickers, setAvailableTickers] = useState<string[]>(POPULAR_TICKERS);
+
   // New trade form state
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
     direction: TradeDirection.LONG,
     optionType: OptionType.CALL,
     quantity: 1,
     status: TradeStatus.OPEN,
-    entryEmotion: Emotion.CALM
+    entryEmotion: Emotion.CALM,
+    checklist: {
+      strategyMatch: false,
+      riskDefined: false,
+      sizeWithinLimits: false,
+      ivConditionsMet: false,
+      emotionalStateCheck: false,
+      maxTradesRespected: false
+    }
   });
+  
+  // Current activity for discipline guard calculation
+  const [currentDailyTrades, setCurrentDailyTrades] = useState(0);
+
+  // Load VIX on mount
+  useEffect(() => {
+    const fetchVix = async () => {
+      setLoadingVix(true);
+      const data = await getCurrentVix();
+      setVixData(data);
+      setLoadingVix(false);
+    };
+    fetchVix();
+  }, []);
+
+  const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase();
+    setNewTrade({...newTrade, ticker: value});
+    
+    if (value.length > 0) {
+      const filtered = availableTickers.filter(t => t.startsWith(value));
+      setTickerSuggestions(filtered);
+      setShowTickerSuggestions(true);
+    } else {
+      setShowTickerSuggestions(false);
+    }
+  };
+
+  const selectTicker = (ticker: string) => {
+    setNewTrade({...newTrade, ticker});
+    setShowTickerSuggestions(false);
+  };
 
   const handleStartAddTrade = () => {
+    // Check VIX conditions before proceeding
+    if (vixData && vixData.value > 17) {
+      setShowVixWarning(true);
+      return;
+    }
+    proceedToDisciplineGuard();
+  };
+
+  const proceedToDisciplineGuard = () => {
+    setShowVixWarning(false);
+    // Calculate current daily trades
+    const todayStr = new Date().toDateString();
+    let count = 0;
+    trades.forEach(t => {
+       if (new Date(t.entryDate).toDateString() === todayStr) count += 0.5;
+       if (t.exitDate && new Date(t.exitDate).toDateString() === todayStr) count += 0.5;
+    });
+    setCurrentDailyTrades(count);
     setShowDisciplineGuard(true);
   };
 
@@ -786,7 +855,19 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
 
   const handleSubmitNewTrade = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent future dates
+    if (newTrade.entryDate && new Date(newTrade.entryDate) > new Date()) {
+      alert("Entry date cannot be in the future.");
+      return;
+    }
+
     if (!newTrade.ticker || !newTrade.entryPrice || !newTrade.strikePrice) return;
+
+    // Add new ticker to available list if not present
+    if (newTrade.ticker && !availableTickers.includes(newTrade.ticker)) {
+      setAvailableTickers(prev => [...prev, newTrade.ticker!].sort());
+    }
 
     // Auto set targets if not set
     let target = newTrade.targetPrice;
@@ -831,12 +912,84 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
         optionType: OptionType.CALL, 
         quantity: 1, 
         status: TradeStatus.OPEN,
-        entryEmotion: Emotion.CALM
+        entryEmotion: Emotion.CALM,
+        checklist: {
+          strategyMatch: false,
+          riskDefined: false,
+          sizeWithinLimits: false,
+          ivConditionsMet: false,
+          emotionalStateCheck: false,
+          maxTradesRespected: false
+        }
     });
+  };
+
+  const getVixStatus = (val: number) => {
+    if (val <= 17) return { 
+      label: 'Favorable', 
+      color: 'emerald', 
+      desc: 'Market is calm. Option trading is favorable.',
+      icon: ThumbsUp 
+    };
+    if (val <= 20) return { 
+      label: 'Caution', 
+      color: 'amber', 
+      desc: 'Volatility is rising. Trade options with extra caution.',
+      icon: AlertTriangle 
+    };
+    return { 
+      label: 'High Risk', 
+      color: 'rose', 
+      desc: 'High Volatility. Stop simple options. Switch to multi-leg or stocks/ETF only.',
+      icon: Zap 
+    };
   };
 
   return (
     <div className="space-y-6">
+       
+       {/* VIX Banner */}
+       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+         <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 border border-zinc-700">
+               <Activity className="h-5 w-5 text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">CBOE Volatility Index</p>
+              <div className="flex items-baseline gap-2">
+                 <h3 className="text-2xl font-bold text-white font-mono">
+                   {loadingVix ? '...' : vixData ? vixData.value.toFixed(2) : '--.--'}
+                 </h3>
+                 <span className="text-xs text-zinc-500">VIX</span>
+              </div>
+            </div>
+         </div>
+         
+         {vixData && (
+           <div className={`flex-1 rounded-lg border px-4 py-2 flex items-center gap-3 ${
+             vixData.value <= 17 
+               ? 'border-emerald-500/20 bg-emerald-500/10' 
+               : vixData.value <= 20 
+                 ? 'border-amber-500/20 bg-amber-500/10' 
+                 : 'border-rose-500/20 bg-rose-500/10'
+           }`}>
+              {(() => {
+                 const status = getVixStatus(vixData.value);
+                 const Icon = status.icon;
+                 return (
+                   <>
+                     <Icon className={`h-5 w-5 shrink-0 text-${status.color}-500`} />
+                     <div>
+                       <p className={`text-sm font-bold text-${status.color}-500`}>Market Condition: {status.label}</p>
+                       <p className={`text-xs text-${status.color}-400/80`}>{status.desc}</p>
+                     </div>
+                   </>
+                 );
+              })()}
+           </div>
+         )}
+       </div>
+
        <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">Trade History</h2>
           <button 
@@ -848,10 +1001,56 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
           </button>
        </div>
 
+       {/* VIX Warning Modal */}
+       {showVixWarning && vixData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-in zoom-in-95">
+               <div className="flex flex-col items-center text-center mb-6">
+                  <div className={`mb-4 rounded-full p-4 ${vixData.value > 20 ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                    {vixData.value > 20 ? <Zap className="h-8 w-8" /> : <AlertTriangle className="h-8 w-8" />}
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">Market Volatility Warning</h3>
+                  <p className="text-2xl font-mono font-bold text-white mb-1">VIX: {vixData.value.toFixed(2)}</p>
+                  
+                  {vixData.value > 20 ? (
+                    <p className="text-sm text-rose-400">
+                      The market is experiencing high volatility. It is highly recommended to <strong>stop trading simple options</strong>. 
+                      Consider switching to multi-leg strategies or trading stocks/ETFs only.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-amber-400">
+                      Volatility is elevated (17-20). Market conditions are becoming unstable. 
+                      Please trade options with <strong>extra caution</strong> and tighter risk management.
+                    </p>
+                  )}
+               </div>
+
+               <div className="flex flex-col gap-3">
+                 <button 
+                   onClick={proceedToDisciplineGuard}
+                   className={`w-full rounded-lg py-3 text-sm font-medium text-white shadow-lg transition-transform active:scale-95 ${
+                      vixData.value > 20 ? 'bg-rose-600 hover:bg-rose-500' : 'bg-amber-600 hover:bg-amber-500'
+                   }`}
+                 >
+                   I Acknowledge & Want to Proceed
+                 </button>
+                 <button 
+                   onClick={() => setShowVixWarning(false)}
+                   className="w-full rounded-lg border border-zinc-700 bg-transparent py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                 >
+                   Cancel Trade
+                 </button>
+               </div>
+            </div>
+          </div>
+       )}
+
        {showDisciplineGuard && (
          <DisciplineGuard 
            onProceed={handleDisciplineProceed} 
            onCancel={() => setShowDisciplineGuard(false)} 
+           currentDailyTrades={currentDailyTrades}
+           maxDailyTrades={userSettings.maxTradesPerDay}
          />
        )}
 
@@ -864,18 +1063,35 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
                </div>
                <form onSubmit={handleSubmitNewTrade} className="p-6 space-y-4">
                    <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="relative">
                          <label className="text-xs text-zinc-400 block mb-1">Ticker</label>
                          <input 
                            required autoFocus
                            className="w-full rounded bg-zinc-800 border border-zinc-700 px-3 py-2 text-white uppercase focus:border-indigo-500 focus:outline-none"
                            value={newTrade.ticker || ''}
-                           onChange={e => setNewTrade({...newTrade, ticker: e.target.value})}
-                           list="popular-tickers"
+                           onChange={handleTickerChange}
+                           onFocus={() => {
+                             if (newTrade.ticker) setShowTickerSuggestions(true);
+                             else {
+                               setTickerSuggestions(availableTickers);
+                               setShowTickerSuggestions(true);
+                             }
+                           }}
+                           onBlur={() => setTimeout(() => setShowTickerSuggestions(false), 200)}
                          />
-                         <datalist id="popular-tickers">
-                            {POPULAR_TICKERS.map(t => <option key={t} value={t} />)}
-                         </datalist>
+                         {showTickerSuggestions && (
+                            <div className="absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
+                               {tickerSuggestions.map(t => (
+                                 <div 
+                                   key={t}
+                                   onClick={() => selectTicker(t)}
+                                   className="cursor-pointer px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-600 hover:text-white"
+                                 >
+                                   {t}
+                                 </div>
+                               ))}
+                            </div>
+                         )}
                       </div>
                       <div>
                          <label className="text-xs text-zinc-400 block mb-1">Strike Price</label>

@@ -17,6 +17,7 @@ interface SettingsProps {
 }
 
 const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
+  { key: 'maxTradesRespected', label: 'Daily Trade Limit Respected' },
   { key: 'strategyMatch', label: 'In Strategy Plan' },
   { key: 'riskDefined', label: 'Risk Defined' },
   { key: 'sizeWithinLimits', label: 'Size Within Limits' },
