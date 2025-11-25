@@ -374,6 +374,7 @@ const App: React.FC = () => {
             <Analytics trades={activeUser.trades} />
           ) : (
             <SettingsPage 
+              trades={activeUser.trades}
               currentBalance={activeUser.initialCapital + metrics.totalPnL}
               initialCapital={activeUser.initialCapital}
               tradeCount={activeUser.trades.length}

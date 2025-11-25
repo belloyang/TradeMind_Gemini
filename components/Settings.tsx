@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
-  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download
 } from 'lucide-react';
 import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings } from '../types';
 
 interface SettingsProps {
+  trades: Trade[];
   currentBalance: number;
   initialCapital: number;
   tradeCount: number;
@@ -176,6 +177,7 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
 };
 
 const Settings: React.FC<SettingsProps> = ({ 
+  trades,
   currentBalance, 
   initialCapital, 
   tradeCount, 
@@ -193,6 +195,52 @@ const Settings: React.FC<SettingsProps> = ({
   const handleReset = () => {
     onReset(parseFloat(newCapital) || 0);
     setShowConfirm(false);
+  };
+
+  const handleExportCSV = () => {
+    if (trades.length === 0) {
+      alert("No trades to export.");
+      return;
+    }
+
+    const headers = [
+      "Date", "Ticker", "Direction", "Type", "Strike", "Expiration", 
+      "Entry Price", "Exit Price", "Quantity", "P&L", "Status", "Notes", "Entry Emotion", "Discipline Score"
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...trades.map(t => {
+        const date = new Date(t.entryDate).toLocaleDateString();
+        const cleanNotes = (t.notes || '').replace(/"/g, '""'); // Escape double quotes
+        return [
+          date,
+          t.ticker,
+          t.direction,
+          t.optionType,
+          t.strikePrice || '',
+          t.expirationDate || '',
+          t.entryPrice,
+          t.exitPrice || '',
+          t.quantity,
+          t.pnl || '',
+          t.status,
+          `"${cleanNotes}"`,
+          t.entryEmotion,
+          t.disciplineScore
+        ].join(',');
+      })
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `trademind_journal_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (viewingArchive) {
@@ -346,7 +394,15 @@ const Settings: React.FC<SettingsProps> = ({
 
       {/* Current Session Manager */}
       <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Active Journal Session</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white">Active Journal Session</h3>
+          <button 
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-zinc-700 hover:text-indigo-300 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" /> Export CSV
+          </button>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
