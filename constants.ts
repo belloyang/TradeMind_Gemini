@@ -4,6 +4,12 @@ export const DIRECTIONS = Object.values(TradeDirection);
 export const OPTION_TYPES = Object.values(OptionType);
 export const EMOTIONS = Object.values(Emotion);
 
+export const COMMON_SETUPS = [
+  'Bull Flag', 'Bear Flag', 'Double Bottom', 'Double Top', 
+  'Head and Shoulders', 'Inverse Head and Shoulders', 'Cup and Handle',
+  'Breakout', 'Reversal', 'Trend Continuation', 'Gap Fill', 'Support Bounce', 'Resistance Reject', 'Earnings Play'
+].sort();
+
 export const POPULAR_TICKERS = [
   'SPY', 'QQQ', 'IWM', 'DIA', 'GLD', 'SLV', 'TLT', 'HYG', 'VXX',
   'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NFLX',

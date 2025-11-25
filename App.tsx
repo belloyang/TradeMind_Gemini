@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut, Sun, Moon } from 'lucide-react';
 import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
 import { INITIAL_TRADES } from './constants';
 import Dashboard from './components/Dashboard';
@@ -11,10 +11,24 @@ import AuthScreen from './components/AuthScreen';
 import SplashScreen from './components/SplashScreen';
 
 const STORAGE_KEY = 'trademind_data_v1';
+const THEME_KEY = 'trademind_theme';
 
 const App: React.FC = () => {
   // --- Splash Screen State ---
   const [showSplash, setShowSplash] = useState(true);
+
+  // --- Theme State ---
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const isDarkMode = theme === 'dark';
 
   // --- User Management State ---
   const [users, setUsers] = useState<UserProfile[]>(() => {
@@ -56,6 +70,17 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
   }, [users]);
 
+  // --- Theme Effect ---
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
   // --- Splash Effect ---
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -73,6 +98,10 @@ const App: React.FC = () => {
   const updateActiveUser = (updater: (user: UserProfile) => UserProfile) => {
     if (!activeUserId) return;
     setUsers(prev => prev.map(u => u.id === activeUserId ? updater(u) : u));
+  };
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
   // --- Calculate Metrics ---
@@ -246,25 +275,33 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-200 font-sans selection:bg-indigo-500/30 transition-colors duration-300">
       
       {/* Sidebar (Desktop) / Topbar (Mobile) */}
-      <div className="fixed left-0 top-0 z-40 flex h-16 w-full items-center justify-between border-b border-zinc-800 bg-zinc-950 px-6 md:flex-col md:h-full md:w-64 md:items-start md:justify-start md:border-b-0 md:border-r md:py-6">
+      <div className="fixed left-0 top-0 z-40 flex h-16 w-full items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 md:flex-col md:h-full md:w-64 md:items-start md:justify-start md:border-b-0 md:border-r md:py-6 transition-colors duration-300">
         
         <div className="flex items-center gap-3 md:px-2 md:mb-10">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-indigo-600 font-bold text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-500/30">
             T
           </div>
-          <span className="text-lg font-bold tracking-tight text-white">TradeMind</span>
+          <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">TradeMind</span>
         </div>
 
-        {/* Mobile Menu Toggle */}
-        <button 
-          className="md:hidden p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-colors"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        {/* Mobile Menu Toggle & Theme Toggle */}
+        <div className="flex items-center gap-2 md:hidden">
+          <button 
+             onClick={toggleTheme}
+             className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+          >
+             {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
+          <button 
+            className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex w-full flex-col gap-2 h-full">
@@ -280,7 +317,7 @@ const App: React.FC = () => {
             icon={<BookOpen size={20} />} 
             label="Journal" 
           />
-          <div className="my-4 border-t border-zinc-800 mx-2"></div>
+          <div className="my-4 border-t border-zinc-200 dark:border-zinc-800 mx-2"></div>
           <NavButton 
             active={activeTab === 'analytics'} 
             onClick={() => setActiveTab('analytics')} 
@@ -294,19 +331,27 @@ const App: React.FC = () => {
             label="Settings" 
           />
 
-          <div className="mt-auto pt-4 border-t border-zinc-800">
-             <div className="px-4 py-3 mb-2 flex items-center gap-3 rounded-lg bg-zinc-900/50">
-               <div className="h-8 w-8 rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
+          <div className="mt-auto pt-4 border-t border-zinc-200 dark:border-zinc-800 w-full">
+             <button 
+               onClick={toggleTheme}
+               className="mb-4 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
+             >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+             </button>
+
+             <div className="px-4 py-3 mb-2 flex items-center gap-3 rounded-lg bg-zinc-100 dark:bg-zinc-900/50">
+               <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
                  {activeUser.name.charAt(0).toUpperCase()}
                </div>
                <div className="overflow-hidden">
-                 <p className="text-sm font-medium text-white truncate">{activeUser.name}</p>
+                 <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{activeUser.name}</p>
                  <p className="text-[10px] text-zinc-500 truncate">Pro Plan</p>
                </div>
              </div>
              <button 
                 onClick={handleLogout}
-                className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-rose-400 transition-colors"
+                className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-rose-500 dark:hover:text-rose-400 transition-colors"
              >
                 <LogOut size={20} />
                 Sign Out
@@ -317,7 +362,7 @@ const App: React.FC = () => {
 
       {/* Mobile Navigation Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-30 bg-zinc-950 pt-20 px-4 md:hidden animate-in slide-in-from-top-5 fade-in duration-200">
+        <div className="fixed inset-0 z-30 bg-zinc-50 dark:bg-zinc-950 pt-20 px-4 md:hidden animate-in slide-in-from-top-5 fade-in duration-200">
            <nav className="flex flex-col gap-2">
               <NavButton 
                 active={activeTab === 'dashboard'} 
@@ -331,7 +376,7 @@ const App: React.FC = () => {
                 icon={<BookOpen size={20} />} 
                 label="Journal" 
               />
-              <div className="my-2 border-t border-zinc-800 mx-2"></div>
+              <div className="my-2 border-t border-zinc-200 dark:border-zinc-800 mx-2"></div>
               <NavButton 
                 active={activeTab === 'analytics'} 
                 onClick={() => handleTabChange('analytics')} 
@@ -346,7 +391,7 @@ const App: React.FC = () => {
               />
               <button 
                 onClick={handleLogout}
-                className="mt-4 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-rose-400 bg-rose-500/10 border border-rose-500/20"
+                className="mt-4 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20"
              >
                 <LogOut size={20} />
                 Sign Out
@@ -356,20 +401,20 @@ const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <main className="pt-20 px-4 pb-10 md:pl-72 md:pt-8 md:pr-8">
+      <main className="pt-20 px-4 pb-10 md:pl-72 md:pt-8 md:pr-8 transition-colors duration-300">
         
         {/* Header Area */}
         <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
               {activeTab === 'dashboard' ? 'Performance Overview' : 
                activeTab === 'journal' ? 'Trading Journal' : 
                activeTab === 'analytics' ? 'Analytics & History' : 'Settings'}
             </h1>
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
                {activeTab === 'settings' 
                  ? "Manage account balance, risk defaults, and history." 
-                 : <span>Welcome back, {activeUser.name}. Your current discipline score is <span className={metrics.disciplineScore >= 80 ? 'text-emerald-400' : 'text-amber-400'}>{metrics.disciplineScore.toFixed(0)}%</span>.</span>}
+                 : <span>Welcome back, {activeUser.name}. Your current discipline score is <span className={metrics.disciplineScore >= 80 ? 'text-emerald-500 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}>{metrics.disciplineScore.toFixed(0)}%</span>.</span>}
             </p>
           </div>
         </header>
@@ -384,7 +429,12 @@ const App: React.FC = () => {
         {/* Content Switcher */}
         <div className="animate-in fade-in duration-500">
           {activeTab === 'dashboard' ? (
-            <Dashboard trades={activeUser.trades} metrics={metrics} initialCapital={activeUser.initialCapital} />
+            <Dashboard 
+              trades={activeUser.trades} 
+              metrics={metrics} 
+              initialCapital={activeUser.initialCapital} 
+              isDarkMode={isDarkMode}
+            />
           ) : activeTab === 'journal' ? (
             <TradeJournal 
               trades={activeUser.trades} 
@@ -394,7 +444,10 @@ const App: React.FC = () => {
               onDeleteTrade={handleDeleteTrade}
             />
           ) : activeTab === 'analytics' ? (
-            <Analytics trades={activeUser.trades} />
+            <Analytics 
+              trades={activeUser.trades} 
+              isDarkMode={isDarkMode}
+            />
           ) : (
             <SettingsPage 
               userProfile={activeUser}
@@ -416,10 +469,10 @@ const NavButton: React.FC<{ active: boolean; onClick: () => void; icon: React.Re
     disabled={disabled}
     className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
       active 
-        ? 'bg-indigo-500/10 text-indigo-400' 
+        ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' 
         : disabled 
-          ? 'cursor-not-allowed opacity-50 text-zinc-600'
-          : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+          ? 'cursor-not-allowed opacity-50 text-zinc-400 dark:text-zinc-600'
+          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-200'
     }`}
   >
     {icon}

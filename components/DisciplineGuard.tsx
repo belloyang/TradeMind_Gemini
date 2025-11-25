@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, AlertTriangle, Check, X, Info } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Check, X } from 'lucide-react';
 import { DisciplineChecklist } from '../types';
 
 interface DisciplineGuardProps {
@@ -10,8 +10,6 @@ interface DisciplineGuardProps {
 }
 
 const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, currentDailyTrades, maxDailyTrades }) => {
-  // Logic: Opening a new trade adds 0.5 to activity. Check if adding it exceeds limit.
-  // NOTE: If we assume checking "Is this valid", we check if CURRENT + 0.5 <= MAX.
   const isMaxTradesRespected = (currentDailyTrades + 0.5) <= maxDailyTrades;
 
   const [checks, setChecks] = useState<DisciplineChecklist>({
@@ -24,7 +22,6 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
   });
 
   const toggleCheck = (key: keyof DisciplineChecklist) => {
-    // maxTradesRespected is read-only, determined by props
     if (key === 'maxTradesRespected') return;
     setChecks(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -42,14 +39,14 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
   const allChecked = Object.values(checks).every(Boolean);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-6 shadow-2xl transition-colors">
         <div className="mb-6 flex items-center justify-center gap-3">
-          <ShieldCheck className="h-8 w-8 text-indigo-500" />
-          <h2 className="text-xl font-bold text-white">Discipline Guard</h2>
+          <ShieldCheck className="h-8 w-8 text-indigo-600 dark:text-indigo-500" />
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Discipline Guard</h2>
         </div>
         
-        <p className="mb-6 text-center text-sm text-zinc-400">
+        <p className="mb-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
           Verify your entry rules before logging this trade. 
           <br/>Honesty is key to improvement.
         </p>
@@ -58,8 +55,8 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
            {/* Automatic System Check */}
           <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
             isMaxTradesRespected 
-              ? 'border-zinc-800 bg-zinc-900/50' 
-              : 'border-rose-900/50 bg-rose-900/10'
+              ? 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50' 
+              : 'border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-900/10'
           }`}>
             <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
               isMaxTradesRespected ? 'border-emerald-500 bg-emerald-500' : 'border-rose-500 bg-rose-500'
@@ -67,11 +64,11 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
               {isMaxTradesRespected ? <Check className="h-3 w-3 text-white" /> : <X className="h-3 w-3 text-white" />}
             </div>
             <div className="flex-1">
-              <span className={`text-sm block ${isMaxTradesRespected ? 'text-zinc-300' : 'text-rose-400 font-medium'}`}>
+              <span className={`text-sm block ${isMaxTradesRespected ? 'text-zinc-700 dark:text-zinc-300' : 'text-rose-600 dark:text-rose-400 font-medium'}`}>
                 I haven't reached the max trade of the day
               </span>
               <span className="text-[10px] text-zinc-500 block mt-0.5">
-                Current: <span className="text-white font-mono">{currentDailyTrades}</span> / Limit: <span className="text-white font-mono">{maxDailyTrades}</span>
+                Current: <span className="text-zinc-900 dark:text-white font-mono">{currentDailyTrades}</span> / Limit: <span className="text-zinc-900 dark:text-white font-mono">{maxDailyTrades}</span>
               </span>
             </div>
             {!isMaxTradesRespected && (
@@ -110,7 +107,7 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
         </div>
 
         {!allChecked && (
-           <div className="mt-6 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-amber-500">
+           <div className="mt-6 flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-3 text-amber-600 dark:text-amber-500">
              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
              <div>
                 <p className="text-xs font-medium">Proceeding with unchecked items will record a rule violation.</p>
@@ -126,7 +123,7 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
         <div className="mt-8 grid grid-cols-2 gap-4">
           <button 
             onClick={onCancel}
-            className="rounded-lg border border-zinc-700 bg-transparent px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800"
+            className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-colors"
           >
             Cancel
           </button>
@@ -147,12 +144,12 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
 };
 
 const CheckItem: React.FC<{ label: string; checked: boolean; onChange: () => void }> = ({ label, checked, onChange }) => (
-  <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 hover:bg-zinc-800/50 transition-colors">
-    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-zinc-600 bg-zinc-800'}`}>
+  <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 p-3 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
+    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'}`}>
       {checked && <Check className="h-3 w-3 text-white" />}
     </div>
     <input type="checkbox" className="hidden" checked={checked} onChange={onChange} />
-    <span className={`text-sm ${checked ? 'text-white' : 'text-zinc-400'}`}>{label}</span>
+    <span className={`text-sm ${checked ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}`}>{label}</span>
   </label>
 );
 

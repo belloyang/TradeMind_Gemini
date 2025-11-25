@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Calendar as CalendarIcon, Target, DollarSign, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, Calendar as CalendarIcon, Target, DollarSign, X } from 'lucide-react';
 import { Trade, TradeStatus } from '../types';
 
 // Helper to format contract name (reused)
@@ -19,9 +19,10 @@ const formatContractName = (ticker: string, strike?: number, type?: string, date
 
 interface AnalyticsProps {
   trades: Trade[];
+  isDarkMode?: boolean;
 }
 
-const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
+const Analytics: React.FC<AnalyticsProps> = ({ trades, isDarkMode = true }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayDetails, setSelectedDayDetails] = useState<{date: Date, trades: Trade[]} | null>(null);
 
@@ -107,7 +108,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
 
     // Empty cells for previous month
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="min-h-[100px] border-r border-b border-zinc-800 bg-zinc-900/30"></div>);
+      days.push(<div key={`empty-${i}`} className="min-h-[100px] border-r border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/30"></div>);
     }
 
     // Days of current month
@@ -121,9 +122,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
         <div 
           key={`day-${day}`} 
           onClick={() => handleDayClick(day)}
-          className={`group relative flex min-h-[100px] cursor-pointer flex-col justify-between border-r border-b border-zinc-800 p-3 transition-all hover:bg-zinc-800/50 
-            ${isProfitable ? 'bg-emerald-900/5' : ''} 
-            ${isLoss ? 'bg-rose-900/5' : ''}
+          className={`group relative flex min-h-[100px] cursor-pointer flex-col justify-between border-r border-b border-zinc-200 dark:border-zinc-800 p-3 transition-all hover:bg-zinc-100 dark:hover:bg-zinc-800/50 
+            ${isProfitable ? 'bg-emerald-50 dark:bg-emerald-900/5' : ''} 
+            ${isLoss ? 'bg-rose-50 dark:bg-rose-900/5' : 'bg-white dark:bg-zinc-900'}
           `}
         >
           <span className={`text-sm font-medium ${
@@ -137,11 +138,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
           {hasTrades && (
             <div className="flex flex-col items-end gap-1">
               <span className={`text-xs font-semibold ${
-                data.pnl > 0 ? 'text-emerald-400' : data.pnl < 0 ? 'text-rose-400' : 'text-zinc-400'
+                data.pnl > 0 ? 'text-emerald-600 dark:text-emerald-400' : data.pnl < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-400'
               }`}>
                 {data.pnl > 0 ? '+' : ''}${data.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
+              <span className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
                 {data.count} trade{data.count !== 1 ? 's' : ''}
               </span>
             </div>
@@ -159,16 +160,16 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       {/* Header & Stats */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Month Selector */}
-        <div className="flex flex-col justify-between rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex flex-col justify-between rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
               {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
             </h2>
             <div className="flex gap-2">
-              <button onClick={() => navigateMonth('prev')} className="rounded-lg border border-zinc-700 p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white">
+              <button onClick={() => navigateMonth('prev')} className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={() => navigateMonth('next')} className="rounded-lg border border-zinc-700 p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white">
+              <button onClick={() => navigateMonth('next')} className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -181,32 +182,32 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
 
         {/* Monthly Stats */}
         <div className="col-span-1 lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-            <div className="flex items-center gap-2 text-zinc-400 mb-2">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm">
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 mb-2">
               <DollarSign className="h-4 w-4" />
               <span className="text-sm font-medium">Net P&L</span>
             </div>
-            <span className={`text-2xl font-bold font-mono ${monthData.stats.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className={`text-2xl font-bold font-mono ${monthData.stats.pnl >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
               {monthData.stats.pnl >= 0 ? '+' : ''}${monthData.stats.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-            <div className="flex items-center gap-2 text-zinc-400 mb-2">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm">
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 mb-2">
               <Target className="h-4 w-4" />
               <span className="text-sm font-medium">Win Rate</span>
             </div>
-            <span className="text-2xl font-bold font-mono text-zinc-200">
+            <span className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-200">
               {monthData.stats.winRate.toFixed(1)}%
             </span>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-            <div className="flex items-center gap-2 text-zinc-400 mb-2">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-sm">
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 mb-2">
               <TrendingUp className="h-4 w-4" />
               <span className="text-sm font-medium">Total Trades</span>
             </div>
-            <span className="text-2xl font-bold font-mono text-zinc-200">
+            <span className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-200">
               {monthData.stats.trades}
             </span>
           </div>
@@ -214,9 +215,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow-xl">
+      <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
         {/* Days Header */}
-        <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-950/50">
+        <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div key={day} className="py-3 text-center text-xs font-semibold uppercase text-zinc-500">
               {day}
@@ -225,7 +226,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
         </div>
         
         {/* Days Grid */}
-        <div className="grid grid-cols-7 bg-zinc-900">
+        <div className="grid grid-cols-7 bg-zinc-200 dark:bg-zinc-900 gap-px">
           {renderCalendarDays()}
         </div>
       </div>
@@ -233,11 +234,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       {/* Legend */}
       <div className="flex items-center justify-end gap-6 text-xs text-zinc-500">
         <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-sm bg-emerald-900/50 border border-emerald-500/20"></div>
+          <div className="h-3 w-3 rounded-sm bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-500/20"></div>
           <span>Profitable Day</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-sm bg-rose-900/50 border border-rose-500/20"></div>
+          <div className="h-3 w-3 rounded-sm bg-rose-100 dark:bg-rose-900/50 border border-rose-500/20"></div>
           <span>Loss Day</span>
         </div>
       </div>
@@ -245,26 +246,26 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       {/* Day Details Modal */}
       {selectedDayDetails && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4"
           onClick={() => setSelectedDayDetails(null)}
         >
           <div 
-            className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95"
+            className="w-full max-w-lg rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 p-4">
-              <h3 className="text-lg font-bold text-white">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
                 {selectedDayDetails.date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
               </h3>
               <button 
                 onClick={() => setSelectedDayDetails(null)}
-                className="rounded-full p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
+                className="rounded-full p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="max-h-[60vh] overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-700">
+            <div className="max-h-[60vh] overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700">
               {selectedDayDetails.trades.length === 0 ? (
                 <div className="py-8 text-center text-zinc-500">
                   <p>No trades recorded on this day.</p>
@@ -272,12 +273,12 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
               ) : (
                 <div className="space-y-3">
                   {selectedDayDetails.trades.map(trade => (
-                    <div key={trade.id} className="rounded-lg border border-zinc-800 bg-zinc-800/30 p-3">
+                    <div key={trade.id} className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30 p-3">
                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-white">
+                          <span className="font-bold text-zinc-900 dark:text-white">
                             {formatContractName(trade.ticker, trade.strikePrice, trade.optionType, trade.expirationDate)}
                           </span>
-                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${trade.direction === 'Long' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${trade.direction === 'Long' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'}`}>
                             {trade.direction.toUpperCase()}
                           </span>
                        </div>
@@ -286,11 +287,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
                              {new Date(trade.entryDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>
                           <div className="flex items-center gap-3">
-                            <span className={`text-xs ${trade.status === TradeStatus.OPEN ? 'text-blue-400' : 'text-zinc-500'}`}>
+                            <span className={`text-xs ${trade.status === TradeStatus.OPEN ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500'}`}>
                               {trade.status}
                             </span>
                             <span className={`font-mono font-medium ${
-                              (trade.pnl || 0) > 0 ? 'text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+                              (trade.pnl || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-400'
                             }`}>
                               {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
                             </span>
@@ -302,10 +303,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
               )}
             </div>
             
-            <div className="border-t border-zinc-800 bg-zinc-900/50 p-3 text-center">
+            <div className="border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 p-3 text-center">
                <p className="text-xs text-zinc-500">
                  Total Day P&L: <span className={`font-mono font-bold ${
-                   (selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0)) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                   (selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0)) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                  }`}>
                    {(selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0)) >= 0 ? '+' : ''}
                    ${selectedDayDetails.trades.reduce((sum, t) => sum + (t.pnl || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

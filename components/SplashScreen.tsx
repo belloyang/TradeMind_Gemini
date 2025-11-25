@@ -15,25 +15,25 @@ const SplashScreen: React.FC = () => {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-white">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white transition-colors duration-300">
       <div className={`flex flex-col items-center justify-center transition-all duration-1000 ease-out ${opacity} ${scale} px-6 text-center`}>
         
         {/* Logo Animation */}
         <div className="relative mb-8">
-          <div className="absolute inset-0 animate-pulse rounded-2xl bg-indigo-600/30 blur-2xl"></div>
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-600 to-indigo-800 shadow-2xl shadow-indigo-900/50">
+          <div className="absolute inset-0 animate-pulse rounded-2xl bg-indigo-500/20 blur-2xl"></div>
+          <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-2xl shadow-indigo-500/40">
             <span className="font-mono text-5xl font-bold text-white">T</span>
           </div>
         </div>
 
         {/* Title */}
-        <h1 className="mb-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
+        <h1 className="mb-4 text-4xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-5xl">
           TradeMind
         </h1>
 
         {/* Tagline / Description */}
         <div className="mx-auto max-w-lg">
-           <p className="text-lg leading-relaxed text-zinc-400">
+           <p className="text-lg leading-relaxed text-zinc-500 dark:text-zinc-400">
             Master the markets by mastering yourself—TradeMind is the all-in-one journal designed to keep option traders disciplined and profitable.
           </p>
         </div>

@@ -36,7 +36,7 @@ export interface Trade {
   ticker: string;
   direction: TradeDirection;
   optionType: OptionType;
-  setup?: string; // New: Strategy/Setup Name (e.g. "Bull Flag")
+  setup?: string; // Strategy/Setup Name (e.g. "Bull Flag")
   entryDate: string;
   exitDate?: string;
   expirationDate?: string;
