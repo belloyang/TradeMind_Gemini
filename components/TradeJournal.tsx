@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Trash2, StopCircle, RefreshCcw, Search, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Tag, Zap } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Trash2, StopCircle, RefreshCcw, Search, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Tag, Zap, Eye, EyeOff } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
 import { DIRECTIONS, OPTION_TYPES, EMOTIONS, POPULAR_TICKERS, COMMON_SETUPS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
@@ -147,14 +147,34 @@ const TradeDetailsModal: React.FC<{
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    let finalPnl = editForm.pnl;
-    if (editForm.status === TradeStatus.CLOSED && editForm.exitPrice !== undefined && editForm.entryPrice !== undefined) {
-      const directionMultiplier = editForm.direction === TradeDirection.LONG ? 1 : -1;
-      finalPnl = (editForm.exitPrice - editForm.entryPrice) * editForm.quantity * 100 * directionMultiplier;
-    } else if (editForm.status === TradeStatus.OPEN) {
-      finalPnl = undefined;
+    
+    const updatedTrade = { ...editForm };
+
+    if (updatedTrade.status === TradeStatus.CLOSED) {
+        // Validation: Exit Price is required for Closed trades
+        if (updatedTrade.exitPrice === undefined || updatedTrade.exitPrice === null || Number.isNaN(updatedTrade.exitPrice)) {
+            alert("Please enter an Exit Price to close this trade.");
+            return;
+        }
+
+        // Force calculation if exit price is set
+        if (updatedTrade.exitPrice !== undefined && updatedTrade.entryPrice !== undefined) {
+             const directionMultiplier = updatedTrade.direction === TradeDirection.LONG ? 1 : -1;
+             updatedTrade.pnl = (updatedTrade.exitPrice - updatedTrade.entryPrice) * updatedTrade.quantity * 100 * directionMultiplier;
+        }
+        // Ensure exit date exists
+        if (!updatedTrade.exitDate) {
+            updatedTrade.exitDate = new Date().toISOString();
+        }
+    } else {
+        // Status is OPEN, clear exit data to ensure consistency
+        updatedTrade.pnl = undefined;
+        updatedTrade.exitPrice = undefined;
+        updatedTrade.exitDate = undefined;
+        updatedTrade.exitEmotion = undefined;
     }
-    onUpdate({ ...editForm, pnl: finalPnl });
+
+    onUpdate(updatedTrade);
     setIsEditing(false);
   };
 
@@ -162,7 +182,7 @@ const TradeDetailsModal: React.FC<{
     setEditForm({
       ...editForm,
       status: TradeStatus.CLOSED,
-      exitPrice: editForm.exitPrice || 0,
+      exitPrice: editForm.exitPrice,
       exitDate: new Date().toISOString()
     });
     setIsEditing(true);
@@ -375,6 +395,18 @@ const TradeDetailsModal: React.FC<{
              
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Inputs for Edit Form */}
+                <div>
+                   <label className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">Status</label>
+                   <select 
+                      value={editForm.status} 
+                      onChange={e => setEditForm({...editForm, status: e.target.value as TradeStatus})} 
+                      className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none"
+                   >
+                       <option value={TradeStatus.OPEN}>Open</option>
+                       <option value={TradeStatus.CLOSED}>Closed</option>
+                   </select>
+                </div>
+
                 {['Direction', 'Option Type'].map((label, i) => (
                   <div key={label}>
                      <label className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">{label}</label>
@@ -435,6 +467,7 @@ const TradeDetailsModal: React.FC<{
                   <div key={f.l}>
                     <label className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">{f.l}</label>
                     <input 
+                      required={f.k === 'strikePrice' || f.k === 'expirationDate'}
                       type={f.t} step={f.s}
                       value={f.v !== undefined ? f.v : (editForm as any)[f.k]}
                       onChange={e => setEditForm({...editForm, [f.k]: f.t === 'number' ? parseFloat(e.target.value) : e.target.value})}
@@ -459,11 +492,17 @@ const TradeDetailsModal: React.FC<{
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                        <label className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">Exit Price</label>
-                       <input type="number" step="0.01" value={editForm.exitPrice || ''} onChange={e => setEditForm({...editForm, exitPrice: parseFloat(e.target.value)})} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-emerald-500 focus:outline-none" />
+                       <input 
+                         required
+                         type="number" step="0.01" 
+                         value={editForm.exitPrice ?? ''} 
+                         onChange={e => setEditForm({...editForm, exitPrice: parseFloat(e.target.value)})} 
+                         className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-emerald-500 focus:outline-none" 
+                        />
                     </div>
                     <div>
                        <label className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">Exit Date</label>
-                       <input type="datetime-local" value={editForm.exitDate ? editForm.exitDate.slice(0, 16) : ''} onChange={e => setEditForm({...editForm, exitDate: e.target.value})} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-emerald-500 focus:outline-none" />
+                       <input required type="datetime-local" value={editForm.exitDate ? editForm.exitDate.slice(0, 16) : ''} onChange={e => setEditForm({...editForm, exitDate: e.target.value})} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-emerald-500 focus:outline-none" />
                     </div>
                   </div>
                </div>
@@ -493,6 +532,25 @@ const TradeDetailsModal: React.FC<{
                    <p className={`text-xl font-mono font-bold ${item.c || 'text-zinc-900 dark:text-zinc-200'}`}>{item.v}</p>
                  </div>
                ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10 p-4">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1 flex items-center gap-1">
+                    <Target className="h-3 w-3" /> Target Price
+                  </p>
+                  <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
+                    {trade.targetPrice ? `$${trade.targetPrice.toFixed(2)}` : '---'}
+                  </p>
+               </div>
+               <div className="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-900/10 p-4">
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mb-1 flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3" /> Stop Loss
+                  </p>
+                  <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
+                    {trade.stopLossPrice ? `$${trade.stopLossPrice.toFixed(2)}` : '---'}
+                  </p>
+               </div>
             </div>
 
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm">
@@ -591,6 +649,8 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
     ...trades.map(t => t.setup).filter((s): s is string => !!s)
   ])).sort();
 
+  const [hideClosed, setHideClosed] = useState(false);
+
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
     direction: TradeDirection.LONG,
     optionType: OptionType.CALL,
@@ -608,6 +668,10 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
   });
   
   const [currentDailyTrades, setCurrentDailyTrades] = useState(0);
+
+  const displayedTrades = useMemo(() => {
+    return hideClosed ? trades.filter(t => t.status === TradeStatus.OPEN) : trades;
+  }, [trades, hideClosed]);
 
   useEffect(() => {
     const fetchVix = async () => {
@@ -773,12 +837,21 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
 
        <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Trade History</h2>
-          <button 
-            onClick={handleStartAddTrade}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95"
-          >
-            <Plus className="h-4 w-4" /> Log New Trade
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setHideClosed(!hideClosed)}
+              className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+            >
+              {hideClosed ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              <span className="hidden sm:inline">{hideClosed ? 'Show Closed' : 'Hide Closed'}</span>
+            </button>
+            <button 
+              onClick={handleStartAddTrade}
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95"
+            >
+              <Plus className="h-4 w-4" /> Log New Trade
+            </button>
+          </div>
        </div>
 
        {showVixWarning && vixData && (
@@ -912,10 +985,12 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
                </tr>
              </thead>
              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-               {trades.length === 0 ? (
-                 <tr><td colSpan={6} className="px-6 py-12 text-center text-zinc-500">No trades logged yet. Click "Log New Trade" to start.</td></tr>
+               {displayedTrades.length === 0 ? (
+                 <tr><td colSpan={6} className="px-6 py-12 text-center text-zinc-500">
+                    {hideClosed && trades.length > 0 ? "No open trades found." : "No trades logged yet. Click \"Log New Trade\" to start."}
+                 </td></tr>
                ) : (
-                 trades.map(trade => (
+                 displayedTrades.map(trade => (
                    <tr key={trade.id} onClick={() => setSelectedTrade(trade)} className="group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
                      <td className="px-6 py-4 text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-300">{new Date(trade.entryDate).toLocaleDateString()}</td>
                      <td className="px-6 py-4 font-bold text-zinc-900 dark:text-white">
