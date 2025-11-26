@@ -84,7 +84,7 @@ const TradeDetailsModal: React.FC<{
   
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [quickExitPrice, setQuickExitPrice] = useState<string>(trade.entryPrice.toString());
+  const [quickExitPrice, setQuickExitPrice] = useState<string>('');
 
   const [checkingPrice, setCheckingPrice] = useState(false);
   const [marketData, setMarketData] = useState<{ text: string; price?: number; sources?: {title: string, uri: string}[] } | null>(null);
@@ -107,6 +107,11 @@ const TradeDetailsModal: React.FC<{
   ];
 
   useEffect(() => {
+    // Sync editForm with trade when trade updates (e.g. after save)
+    setEditForm(trade);
+  }, [trade]);
+
+  useEffect(() => {
     if (isEditing && editForm.entryPrice) {
       const entry = editForm.entryPrice;
       const targetPct = userSettings.defaultTargetPercent / 100;
@@ -120,10 +125,11 @@ const TradeDetailsModal: React.FC<{
         target = entry * (1 + targetPct);
         stop = entry * (1 - stopPct);
       }
+      // Only set if not already set to avoid overwriting user manual edits during form interaction
       setEditForm(prev => ({
           ...prev,
-          targetPrice: parseFloat(target.toFixed(2)),
-          stopLossPrice: parseFloat(stop.toFixed(2))
+          targetPrice: prev.targetPrice || parseFloat(target.toFixed(2)),
+          stopLossPrice: prev.stopLossPrice || parseFloat(stop.toFixed(2))
       }));
     }
   }, [editForm.entryPrice, editForm.direction, isEditing, userSettings]);
@@ -182,7 +188,7 @@ const TradeDetailsModal: React.FC<{
     setEditForm({
       ...editForm,
       status: TradeStatus.CLOSED,
-      exitPrice: editForm.exitPrice,
+      exitPrice: undefined, // Force user to enter
       exitDate: new Date().toISOString()
     });
     setIsEditing(true);
@@ -190,7 +196,7 @@ const TradeDetailsModal: React.FC<{
 
   const handleStatusClick = () => {
     if (isEditing) return;
-    setQuickExitPrice(trade.entryPrice.toString());
+    setQuickExitPrice(trade.entryPrice ? trade.entryPrice.toString() : '');
     setShowStatusConfirm(true);
   };
 
@@ -200,6 +206,10 @@ const TradeDetailsModal: React.FC<{
 
     if (newStatus === TradeStatus.CLOSED) {
       const exitPrice = parseFloat(quickExitPrice);
+      if (isNaN(exitPrice)) {
+        alert("Please enter a valid exit price.");
+        return;
+      }
       updatedTrade.exitPrice = exitPrice;
       updatedTrade.exitDate = new Date().toISOString();
       const directionMultiplier = trade.direction === TradeDirection.LONG ? 1 : -1;
@@ -215,6 +225,7 @@ const TradeDetailsModal: React.FC<{
     onUpdate(updatedTrade);
     setShowStatusConfirm(false);
     setEditForm(updatedTrade);
+    onClose();
   };
 
   const handleCheckPrice = async () => {
@@ -682,6 +693,16 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
     };
     fetchVix();
   }, []);
+
+  // Sync selectedTrade with updated data source to reflect changes immediately
+  useEffect(() => {
+    if (selectedTrade) {
+      const updatedTrade = trades.find(t => t.id === selectedTrade.id);
+      if (updatedTrade) {
+        setSelectedTrade(updatedTrade);
+      }
+    }
+  }, [trades, selectedTrade]);
 
   const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toUpperCase();
