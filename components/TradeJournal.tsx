@@ -769,12 +769,8 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
   };
 
   const handleStartAddTrade = () => {
-    if (vixData && vixData.value > 17) {
-      setShowVixWarning(true);
-      return;
-    }
-    
     // Reset form and auto-populate entry date with current local time for fresh trade
+    // Do this BEFORE any VIX checks so the state is ready even if warning is shown
     setNewTrade({
         direction: TradeDirection.LONG,
         optionType: OptionType.CALL,
@@ -796,6 +792,11 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
         },
         entryDate: toLocalISOString(new Date())
     });
+
+    if (vixData && vixData.value > 17) {
+      setShowVixWarning(true);
+      return;
+    }
     
     setShowAddModal(true);
   };
