@@ -76,11 +76,12 @@ const TradeDetailsModal: React.FC<{
   trade: Trade; 
   allTrades: Trade[]; 
   userSettings: UserSettings;
+  initialCapital: number;
   onClose: () => void; 
   onUpdate: (trade: Trade) => void;
   onDelete: () => void; 
   initialIsEditing?: boolean;
-}> = ({ trade, allTrades, userSettings, onClose, onUpdate, onDelete, initialIsEditing = false }) => {
+}> = ({ trade, allTrades, userSettings, initialCapital, onClose, onUpdate, onDelete, initialIsEditing = false }) => {
   const [isEditing, setIsEditing] = useState(initialIsEditing);
   const [editForm, setEditForm] = useState<Trade>(trade);
   
@@ -107,6 +108,16 @@ const TradeDetailsModal: React.FC<{
     { key: 'ivConditionsMet', label: 'IV Conditions Met' },
     { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
   ];
+
+  // Risk Violation Check
+  const realizedPnL = useMemo(() => allTrades.reduce((sum, t) => sum + (t.pnl || 0), 0), [allTrades]);
+  const currentBalance = initialCapital + realizedPnL;
+  const maxRiskAmount = currentBalance * (userSettings.maxRiskPerTradePercent / 100);
+  
+  const tradeRiskPerShare = trade.stopLossPrice ? Math.abs(trade.entryPrice - trade.stopLossPrice) : 0;
+  const tradeRiskTotal = tradeRiskPerShare * trade.quantity * 100; // Options multiplier
+  const isRiskViolation = trade.stopLossPrice && tradeRiskTotal > maxRiskAmount;
+
 
   useEffect(() => {
     // Sync editForm with trade when trade updates (e.g. after save)
@@ -565,6 +576,20 @@ const TradeDetailsModal: React.FC<{
                    </p>
                 </div>
             </div>
+
+            {/* Risk Warning in Details */}
+            {isRiskViolation && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/10 p-3 flex items-start gap-3">
+                   <ShieldAlert className="h-5 w-5 text-rose-500 shrink-0" />
+                   <div>
+                      <p className="text-sm font-bold text-rose-600 dark:text-rose-500">Max Risk Violation</p>
+                      <p className="text-xs text-rose-600/80 dark:text-rose-400/80 mt-1">
+                        Risking <span className="font-mono">${tradeRiskTotal.toFixed(2)}</span> ({((tradeRiskTotal/currentBalance)*100).toFixed(1)}% of balance).
+                        <br/>Limit is <span className="font-mono">${maxRiskAmount.toFixed(2)}</span> ({userSettings.maxRiskPerTradePercent}%).
+                      </p>
+                   </div>
+                </div>
+            )}
 
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm">
                <div className="flex items-center justify-between mb-3">
@@ -1065,7 +1090,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
        )}
 
        {selectedTrade && (
-          <TradeDetailsModal trade={selectedTrade} allTrades={trades} userSettings={userSettings} onClose={() => setSelectedTrade(null)} onUpdate={onUpdateTrade} onDelete={() => { onDeleteTrade(selectedTrade.id); setSelectedTrade(null); }} />
+          <TradeDetailsModal trade={selectedTrade} allTrades={trades} userSettings={userSettings} initialCapital={initialCapital} onClose={() => setSelectedTrade(null)} onUpdate={onUpdateTrade} onDelete={() => { onDeleteTrade(selectedTrade.id); setSelectedTrade(null); }} />
        )}
 
        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden shadow-sm">
