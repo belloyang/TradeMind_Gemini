@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Trash2, StopCircle, RefreshCcw, Search, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Tag, Zap, Eye, EyeOff, ArrowUp, ArrowDown, Receipt } from 'lucide-react';
+import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Trash2, StopCircle, RefreshCcw, Search, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Tag, Zap, Eye, EyeOff, ArrowUp, ArrowDown, Receipt, Copy } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
 import { DIRECTIONS, OPTION_TYPES, EMOTIONS, POPULAR_TICKERS, COMMON_SETUPS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
@@ -87,9 +87,10 @@ const TradeDetailsModal: React.FC<{
   initialCapital: number;
   onClose: () => void; 
   onUpdate: (trade: Trade) => void;
-  onDelete: () => void; 
+  onDelete: () => void;
+  onDuplicate: (trade: Trade) => void;
   initialIsEditing?: boolean;
-}> = ({ trade, allTrades, userSettings, initialCapital, onClose, onUpdate, onDelete, initialIsEditing = false }) => {
+}> = ({ trade, allTrades, userSettings, initialCapital, onClose, onUpdate, onDelete, onDuplicate, initialIsEditing = false }) => {
   const [isEditing, setIsEditing] = useState(initialIsEditing);
   const [editForm, setEditForm] = useState<Trade>(trade);
   
@@ -400,6 +401,9 @@ const TradeDetailsModal: React.FC<{
                  )}
                  <button onClick={() => { setEditForm(trade); setIsEditing(true); }} className="flex items-center gap-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
                     <Edit2 className="h-4 w-4" /> Edit
+                  </button>
+                 <button onClick={() => onDuplicate(trade)} className="flex items-center gap-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors" title="Duplicate Trade">
+                    <Copy className="h-4 w-4" /> Duplicate
                   </button>
               </>
             )}
@@ -856,6 +860,45 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
     setShowAddModal(true);
   };
 
+  const handleDuplicateTrade = (tradeToDuplicate: Trade) => {
+    setSelectedTrade(null); // Close details modal
+
+    // Prepare new trade state based on the duplicated one
+    setNewTrade({
+      ticker: tradeToDuplicate.ticker,
+      direction: tradeToDuplicate.direction,
+      optionType: tradeToDuplicate.optionType,
+      strikePrice: tradeToDuplicate.strikePrice,
+      expirationDate: tradeToDuplicate.expirationDate,
+      setup: tradeToDuplicate.setup,
+      quantity: tradeToDuplicate.quantity,
+      entryPrice: tradeToDuplicate.entryPrice, 
+      targetPrice: tradeToDuplicate.targetPrice,
+      stopLossPrice: tradeToDuplicate.stopLossPrice,
+      fees: tradeToDuplicate.fees,
+      notes: tradeToDuplicate.notes,
+      
+      // Resets for new trade
+      status: TradeStatus.OPEN,
+      entryEmotion: Emotion.CALM, 
+      entryDate: toLocalISOString(new Date()),
+      checklist: {
+        strategyMatch: false,
+        ivConditionsMet: false,
+        emotionalStateCheck: false,
+        maxTradesRespected: false,
+        maxRiskRespected: false
+      }
+    });
+
+    // VIX check for duplication flow
+    if (vixData && vixData.value > 17) {
+      setShowVixWarning(true);
+    } else {
+      setShowAddModal(true);
+    }
+  };
+
   const proceedToDisciplineGuard = (trade: Trade) => {
     setShowVixWarning(false);
     
@@ -1233,7 +1276,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
        )}
 
        {selectedTrade && (
-          <TradeDetailsModal trade={selectedTrade} allTrades={trades} userSettings={userSettings} initialCapital={initialCapital} onClose={() => setSelectedTrade(null)} onUpdate={onUpdateTrade} onDelete={() => { onDeleteTrade(selectedTrade.id); setSelectedTrade(null); }} />
+          <TradeDetailsModal trade={selectedTrade} allTrades={trades} userSettings={userSettings} initialCapital={initialCapital} onClose={() => setSelectedTrade(null)} onUpdate={onUpdateTrade} onDelete={() => { onDeleteTrade(selectedTrade.id); setSelectedTrade(null); }} onDuplicate={handleDuplicateTrade} />
        )}
 
        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden shadow-sm">
