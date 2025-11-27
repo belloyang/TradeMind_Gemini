@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Trash2, StopCircle, RefreshCcw, Search, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Tag, Zap, Eye, EyeOff } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
@@ -8,6 +9,7 @@ import { getPriceEstimate, getCurrentVix } from '../services/geminiService';
 interface TradeJournalProps {
   trades: Trade[];
   userSettings: UserSettings;
+  initialCapital: number;
   onAddTrade: (trade: Trade) => void;
   onUpdateTrade: (trade: Trade) => void;
   onDeleteTrade: (tradeId: string) => void;
@@ -546,22 +548,22 @@ const TradeDetailsModal: React.FC<{
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10 p-4">
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1 flex items-center gap-1">
-                    <Target className="h-3 w-3" /> Target Price
-                  </p>
-                  <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
-                    {trade.targetPrice ? `$${trade.targetPrice.toFixed(2)}` : '---'}
-                  </p>
-               </div>
-               <div className="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-900/10 p-4">
-                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mb-1 flex items-center gap-1">
-                    <ShieldAlert className="h-3 w-3" /> Stop Loss
-                  </p>
-                  <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
-                    {trade.stopLossPrice ? `$${trade.stopLossPrice.toFixed(2)}` : '---'}
-                  </p>
-               </div>
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10 p-4 flex flex-col justify-between">
+                   <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1 flex items-center gap-1">
+                     <Target className="h-3 w-3" /> Target Price
+                   </p>
+                   <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
+                     {trade.targetPrice ? `$${trade.targetPrice.toFixed(2)}` : '---'}
+                   </p>
+                </div>
+                <div className="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-900/10 p-4 flex flex-col justify-between">
+                   <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mb-1 flex items-center gap-1">
+                     <ShieldAlert className="h-3 w-3" /> Stop Loss
+                   </p>
+                   <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
+                     {trade.stopLossPrice ? `$${trade.stopLossPrice.toFixed(2)}` : '---'}
+                   </p>
+                </div>
             </div>
 
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm">
@@ -640,7 +642,7 @@ const TradeDetailsModal: React.FC<{
   );
 };
 
-const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAddTrade, onUpdateTrade, onDeleteTrade }) => {
+const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initialCapital, onAddTrade, onUpdateTrade, onDeleteTrade }) => {
   const [showDisciplineGuard, setShowDisciplineGuard] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
@@ -648,6 +650,11 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
   const [vixData, setVixData] = useState<{value: number, timestamp: string} | null>(null);
   const [loadingVix, setLoadingVix] = useState(false);
   const [showVixWarning, setShowVixWarning] = useState(false);
+
+  // New risk warning state
+  const [showRiskWarning, setShowRiskWarning] = useState(false);
+  const [pendingTrade, setPendingTrade] = useState<Trade | null>(null);
+  const [riskDetails, setRiskDetails] = useState<{riskAmount: number, maxAllowed: number, percent: number} | null>(null);
 
   const [tickerSuggestions, setTickerSuggestions] = useState<string[]>([]);
   const [showTickerSuggestions, setShowTickerSuggestions] = useState(false);
@@ -741,6 +748,28 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
     setShowAddModal(true);
   };
 
+  const finalizeTradeSubmission = (trade: Trade) => {
+      onAddTrade(trade);
+      setShowAddModal(false);
+      setShowRiskWarning(false);
+      setPendingTrade(null);
+      setNewTrade({
+          direction: TradeDirection.LONG, 
+          optionType: OptionType.CALL, 
+          quantity: 1, 
+          status: TradeStatus.OPEN,
+          entryEmotion: Emotion.CALM,
+          checklist: {
+            strategyMatch: false,
+            riskDefined: false,
+            sizeWithinLimits: false,
+            ivConditionsMet: false,
+            emotionalStateCheck: false,
+            maxTradesRespected: false
+          }
+      });
+  };
+
   const handleSubmitNewTrade = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTrade.entryDate && new Date(newTrade.entryDate) > new Date()) {
@@ -788,23 +817,33 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
       disciplineScore: newTrade.disciplineScore || 0,
     };
 
-    onAddTrade(trade);
-    setShowAddModal(false);
-    setNewTrade({
-        direction: TradeDirection.LONG, 
-        optionType: OptionType.CALL, 
-        quantity: 1, 
-        status: TradeStatus.OPEN,
-        entryEmotion: Emotion.CALM,
-        checklist: {
-          strategyMatch: false,
-          riskDefined: false,
-          sizeWithinLimits: false,
-          ivConditionsMet: false,
-          emotionalStateCheck: false,
-          maxTradesRespected: false
-        }
-    });
+    // Calculate Risk
+    // For Option Contracts: Risk = |Entry - Stop| * Quantity * 100
+    // If stop loss is 0 or undefined, we can't calculate risk (or it's 100% of entry). 
+    // Assuming calculated stop loss is used if not provided manually.
+    const riskPerShare = Math.abs(trade.entryPrice - (trade.stopLossPrice || 0));
+    const riskAmount = riskPerShare * trade.quantity * 100; // 100 multiplier for options
+
+    // Calculate Total Balance
+    const realizedPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const totalBalance = initialCapital + realizedPnL;
+    
+    // Max Risk Allowance
+    const maxRiskPercent = userSettings.maxRiskPerTradePercent || 4; // Default to 4% if unset
+    const maxAllowedRisk = totalBalance * (maxRiskPercent / 100);
+
+    if (riskAmount > maxAllowedRisk) {
+        setPendingTrade(trade);
+        setRiskDetails({
+            riskAmount,
+            maxAllowed: maxAllowedRisk,
+            percent: (riskAmount / totalBalance) * 100
+        });
+        setShowRiskWarning(true);
+        return;
+    }
+
+    finalizeTradeSubmission(trade);
   };
 
   const getVixStatus = (val: number) => {
@@ -888,6 +927,42 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, onAdd
                <div className="flex flex-col gap-3">
                  <button onClick={proceedToDisciplineGuard} className={`w-full rounded-lg py-3 text-sm font-medium text-white shadow-lg transition-transform active:scale-95 ${vixData.value > 20 ? 'bg-rose-600 hover:bg-rose-500' : 'bg-amber-600 hover:bg-amber-500'}`}>I Acknowledge & Want to Proceed</button>
                  <button onClick={() => setShowVixWarning(false)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">Cancel Trade</button>
+               </div>
+            </div>
+          </div>
+       )}
+
+        {/* Max Risk Warning Modal */}
+        {showRiskWarning && riskDetails && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-2xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-zinc-900 p-6 shadow-2xl animate-in zoom-in-95">
+               <div className="flex flex-col items-center text-center mb-6">
+                  <div className="mb-4 rounded-full p-4 bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-500">
+                    <ShieldAlert className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">High Risk Alert</h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+                    This trade exceeds your maximum risk allowance of <span className="font-bold">{userSettings.maxRiskPerTradePercent}%</span> of your total balance.
+                  </p>
+                  
+                  <div className="w-full space-y-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 p-4 mb-4">
+                      <div className="flex justify-between text-sm">
+                          <span className="text-zinc-500">Risk Amount:</span>
+                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400">${riskDetails.riskAmount.toFixed(2)}</span>
+                      </div>
+                       <div className="flex justify-between text-sm">
+                          <span className="text-zinc-500">Max Allowed:</span>
+                          <span className="font-mono font-bold text-zinc-900 dark:text-white">${riskDetails.maxAllowed.toFixed(2)}</span>
+                      </div>
+                      <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700 flex justify-between text-sm">
+                          <span className="text-zinc-500">Risk %:</span>
+                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{riskDetails.percent.toFixed(2)}%</span>
+                      </div>
+                  </div>
+               </div>
+               <div className="flex flex-col gap-3">
+                 <button onClick={() => { if(pendingTrade) finalizeTradeSubmission(pendingTrade); }} className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 py-3 text-sm font-medium text-white shadow-lg transition-transform active:scale-95">Proceed Anyway (High Risk)</button>
+                 <button onClick={() => { setShowRiskWarning(false); setPendingTrade(null); }} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">Edit Trade</button>
                </div>
             </div>
           </div>

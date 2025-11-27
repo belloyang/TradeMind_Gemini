@@ -1,3 +1,4 @@
+
 export enum TradeDirection {
   LONG = 'Long',
   SHORT = 'Short',
@@ -85,6 +86,7 @@ export interface UserSettings {
   defaultTargetPercent: number;
   defaultStopLossPercent: number;
   maxTradesPerDay: number;
+  maxRiskPerTradePercent: number;
 }
 
 export interface UserProfile {

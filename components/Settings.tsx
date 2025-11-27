@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
-  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download, Upload, FileJson
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download, Upload, FileJson, TrendingDown
 } from 'lucide-react';
 import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings, UserProfile } from '../types';
 
@@ -317,7 +318,7 @@ const Settings: React.FC<SettingsProps> = ({
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-6 shadow-sm">
         <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Risk Management Defaults</h3>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">Set your default profit targets, stop losses, and trade limits.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center gap-2"><Target className="h-3 w-3" /> Default Profit Target (%)</label>
             <div className="relative">
@@ -331,6 +332,14 @@ const Settings: React.FC<SettingsProps> = ({
               <input type="number" value={userSettings.defaultStopLossPercent} onChange={(e) => onUpdateSettings({...userSettings, defaultStopLossPercent: parseFloat(e.target.value)})} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
             </div>
+          </div>
+          <div>
+             <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center gap-2"><TrendingDown className="h-3 w-3" /> Max Risk Per Trade (%)</label>
+             <div className="relative">
+                <input type="number" step="0.5" value={userSettings.maxRiskPerTradePercent} onChange={(e) => onUpdateSettings({...userSettings, maxRiskPerTradePercent: parseFloat(e.target.value)})} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
+             </div>
+             <p className="text-[10px] text-zinc-500 mt-1">Warns if risk > % of Balance</p>
           </div>
           <div>
             <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center gap-2"><Layers className="h-3 w-3" /> Max Trades Per Day</label>

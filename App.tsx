@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut, Sun, Moon } from 'lucide-react';
 import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
@@ -53,7 +54,8 @@ const App: React.FC = () => {
         settings: {
           defaultTargetPercent: 40,
           defaultStopLossPercent: 20,
-          maxTradesPerDay: 3
+          maxTradesPerDay: 3,
+          maxRiskPerTradePercent: 4 // Default 4%
         }
       }
     ];
@@ -160,7 +162,8 @@ const App: React.FC = () => {
       settings: {
         defaultTargetPercent: 30,
         defaultStopLossPercent: 15,
-        maxTradesPerDay: 5
+        maxTradesPerDay: 5,
+        maxRiskPerTradePercent: 4
       },
       password: userData.password,
       securityQuestion: userData.securityQuestion,
@@ -439,6 +442,7 @@ const App: React.FC = () => {
             <TradeJournal 
               trades={activeUser.trades} 
               userSettings={activeUser.settings}
+              initialCapital={activeUser.initialCapital}
               onAddTrade={handleAddTrade} 
               onUpdateTrade={handleUpdateTrade}
               onDeleteTrade={handleDeleteTrade}
