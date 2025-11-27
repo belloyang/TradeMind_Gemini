@@ -44,7 +44,6 @@ export const INITIAL_TRADES: Trade[] = [
     entryEmotion: Emotion.CALM,
     checklist: {
       strategyMatch: true,
-      riskDefined: true,
       ivConditionsMet: true,
       emotionalStateCheck: true,
       maxTradesRespected: true,
@@ -71,7 +70,6 @@ export const INITIAL_TRADES: Trade[] = [
     entryEmotion: Emotion.FOMO,
     checklist: {
       strategyMatch: false, // Violation
-      riskDefined: true,
       ivConditionsMet: false, // Violation
       emotionalStateCheck: false, // Violation
       maxTradesRespected: true,
@@ -97,7 +95,6 @@ export const INITIAL_TRADES: Trade[] = [
     entryEmotion: Emotion.CONFIDENT,
     checklist: {
       strategyMatch: true,
-      riskDefined: true,
       ivConditionsMet: true,
       emotionalStateCheck: true,
       maxTradesRespected: true,

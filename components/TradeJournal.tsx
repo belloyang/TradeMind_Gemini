@@ -112,7 +112,6 @@ const TradeDetailsModal: React.FC<{
     { key: 'maxTradesRespected', label: 'Daily Trade Limit Respected' },
     { key: 'maxRiskRespected', label: 'Risk Limit Respected' },
     { key: 'strategyMatch', label: 'In Strategy Plan' },
-    { key: 'riskDefined', label: 'Risk Defined' },
     { key: 'ivConditionsMet', label: 'IV Conditions Met' },
     { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
   ];
@@ -708,7 +707,6 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
     entryEmotion: Emotion.CALM,
     checklist: {
       strategyMatch: false,
-      riskDefined: false,
       ivConditionsMet: false,
       emotionalStateCheck: false,
       maxTradesRespected: false,
@@ -784,7 +782,6 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
         setup: '',
         checklist: {
             strategyMatch: false,
-            riskDefined: false,
             ivConditionsMet: false,
             emotionalStateCheck: false,
             maxTradesRespected: false,
@@ -843,7 +840,6 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
           entryEmotion: Emotion.CALM,
           checklist: {
             strategyMatch: false,
-            riskDefined: false,
             ivConditionsMet: false,
             emotionalStateCheck: false,
             maxTradesRespected: false,
@@ -893,7 +889,6 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
     // Update checklist based on risk calculation
     const currentChecklist = {
         strategyMatch: false,
-        riskDefined: false,
         ivConditionsMet: false,
         emotionalStateCheck: false,
         maxTradesRespected: false,
@@ -1114,14 +1109,6 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
                       <div>
                          <label className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Entry Date</label>
                          <input required type="datetime-local" className="w-full rounded bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" value={newTrade.entryDate ? newTrade.entryDate.slice(0,16) : ''} onChange={e => setNewTrade({...newTrade, entryDate: e.target.value})} />
-                         {/* Projected Activity Info */}
-                         <div className={`mt-2 flex items-center gap-2 rounded px-3 py-2 text-xs font-medium border ${isProjectedViolation ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-500' : 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400'}`}>
-                            {isProjectedViolation ? <AlertTriangle className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
-                            <div className="flex-1">
-                               <span>Projected Daily Trades: <span className="font-mono">{projectedDailyActivity}</span> / <span className="font-mono">{userSettings.maxTradesPerDay}</span></span>
-                               {isProjectedViolation && <span className="block font-bold mt-0.5">Warning: This exceeds your daily limit!</span>}
-                            </div>
-                         </div>
                       </div>
                        <div>
                          <label className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Quantity</label>

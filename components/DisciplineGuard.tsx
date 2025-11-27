@@ -16,7 +16,6 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
 
   const [checks, setChecks] = useState<DisciplineChecklist>({
     strategyMatch: false,
-    riskDefined: false,
     ivConditionsMet: false,
     emotionalStateCheck: false,
     maxTradesRespected: isMaxTradesRespected,
@@ -98,11 +97,6 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
             label="Is this trade in my written strategy plan?" 
             checked={checks.strategyMatch} 
             onChange={() => toggleCheck('strategyMatch')} 
-          />
-          <CheckItem 
-            label="Is my risk strictly defined (Stop/Max Loss)?" 
-            checked={checks.riskDefined} 
-            onChange={() => toggleCheck('riskDefined')} 
           />
           <CheckItem 
             label="Are IV / Market conditions favorable?" 

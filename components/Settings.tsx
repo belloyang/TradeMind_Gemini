@@ -17,7 +17,6 @@ const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
   { key: 'maxTradesRespected', label: 'Daily Trade Limit Respected' },
   { key: 'maxRiskRespected', label: 'Risk Limit Respected' },
   { key: 'strategyMatch', label: 'In Strategy Plan' },
-  { key: 'riskDefined', label: 'Risk Defined' },
   { key: 'ivConditionsMet', label: 'IV Conditions Met' },
   { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
 ];
