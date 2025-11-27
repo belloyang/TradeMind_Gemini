@@ -15,9 +15,9 @@ interface SettingsProps {
 
 const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
   { key: 'maxTradesRespected', label: 'Daily Trade Limit Respected' },
+  { key: 'maxRiskRespected', label: 'Risk Limit Respected' },
   { key: 'strategyMatch', label: 'In Strategy Plan' },
   { key: 'riskDefined', label: 'Risk Defined' },
-  { key: 'sizeWithinLimits', label: 'Size Within Limits' },
   { key: 'ivConditionsMet', label: 'IV Conditions Met' },
   { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
 ];
@@ -99,6 +99,25 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
               <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Hash className="h-3 w-3" /> Quantity</p>
               <p className="text-xl font-mono font-bold text-zinc-900 dark:text-zinc-200">{trade.quantity}</p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10 p-4 flex flex-col justify-between">
+                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1 flex items-center gap-1">
+                   <Target className="h-3 w-3" /> Target Price
+                 </p>
+                 <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
+                   {trade.targetPrice ? `$${trade.targetPrice.toFixed(2)}` : '---'}
+                 </p>
+              </div>
+              <div className="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-900/10 p-4 flex flex-col justify-between">
+                 <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mb-1 flex items-center gap-1">
+                   <ShieldAlert className="h-3 w-3" /> Stop Loss
+                 </p>
+                 <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
+                   {trade.stopLossPrice ? `$${trade.stopLossPrice.toFixed(2)}` : '---'}
+                 </p>
+              </div>
           </div>
 
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm">

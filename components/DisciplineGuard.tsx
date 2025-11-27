@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ShieldCheck, AlertTriangle, Check, X } from 'lucide-react';
 import { DisciplineChecklist } from '../types';
@@ -7,22 +8,23 @@ interface DisciplineGuardProps {
   onCancel: () => void;
   currentDailyTrades: number;
   maxDailyTrades: number;
+  isRiskRespected: boolean;
 }
 
-const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, currentDailyTrades, maxDailyTrades }) => {
+const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, currentDailyTrades, maxDailyTrades, isRiskRespected }) => {
   const isMaxTradesRespected = (currentDailyTrades + 0.5) <= maxDailyTrades;
 
   const [checks, setChecks] = useState<DisciplineChecklist>({
     strategyMatch: false,
     riskDefined: false,
-    sizeWithinLimits: false,
     ivConditionsMet: false,
     emotionalStateCheck: false,
     maxTradesRespected: isMaxTradesRespected,
+    maxRiskRespected: isRiskRespected,
   });
 
   const toggleCheck = (key: keyof DisciplineChecklist) => {
-    if (key === 'maxTradesRespected') return;
+    if (key === 'maxTradesRespected' || key === 'maxRiskRespected') return;
     setChecks(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -52,7 +54,7 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
         </p>
 
         <div className="space-y-3">
-           {/* Automatic System Check */}
+           {/* Automatic System Check - Trades per Day */}
           <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
             isMaxTradesRespected 
               ? 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50' 
@@ -65,17 +67,30 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
             </div>
             <div className="flex-1">
               <span className={`text-sm block ${isMaxTradesRespected ? 'text-zinc-700 dark:text-zinc-300' : 'text-rose-600 dark:text-rose-400 font-medium'}`}>
-                I haven't reached the max trade of the day
+                Daily trade limit respected
               </span>
               <span className="text-[10px] text-zinc-500 block mt-0.5">
                 Current: <span className="text-zinc-900 dark:text-white font-mono">{currentDailyTrades}</span> / Limit: <span className="text-zinc-900 dark:text-white font-mono">{maxDailyTrades}</span>
               </span>
             </div>
-            {!isMaxTradesRespected && (
-               <div title="Daily Limit Exceeded">
-                  <AlertTriangle className="h-4 w-4 text-rose-500" />
-               </div>
-            )}
+          </div>
+
+          {/* Automatic System Check - Max Risk */}
+          <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+            isRiskRespected 
+              ? 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50' 
+              : 'border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-900/10'
+          }`}>
+            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+              isRiskRespected ? 'border-emerald-500 bg-emerald-500' : 'border-rose-500 bg-rose-500'
+            }`}>
+              {isRiskRespected ? <Check className="h-3 w-3 text-white" /> : <X className="h-3 w-3 text-white" />}
+            </div>
+            <div className="flex-1">
+              <span className={`text-sm block ${isRiskRespected ? 'text-zinc-700 dark:text-zinc-300' : 'text-rose-600 dark:text-rose-400 font-medium'}`}>
+                Max risk per trade limit respected
+              </span>
+            </div>
           </div>
 
           {/* Manual Checks */}
@@ -88,11 +103,6 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
             label="Is my risk strictly defined (Stop/Max Loss)?" 
             checked={checks.riskDefined} 
             onChange={() => toggleCheck('riskDefined')} 
-          />
-          <CheckItem 
-            label="Is position size within my % rules?" 
-            checked={checks.sizeWithinLimits} 
-            onChange={() => toggleCheck('sizeWithinLimits')} 
           />
           <CheckItem 
             label="Are IV / Market conditions favorable?" 
@@ -111,9 +121,9 @@ const DisciplineGuard: React.FC<DisciplineGuardProps> = ({ onProceed, onCancel, 
              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
              <div>
                 <p className="text-xs font-medium">Proceeding with unchecked items will record a rule violation.</p>
-                {!isMaxTradesRespected && (
+                {(!isMaxTradesRespected || !isRiskRespected) && (
                    <p className="text-[10px] mt-1 opacity-80">
-                     Note: You have exceeded your daily trade limit.
+                     Note: You have exceeded system limits (Daily Trades or Risk).
                    </p>
                 )}
              </div>

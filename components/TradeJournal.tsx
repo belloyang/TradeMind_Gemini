@@ -15,6 +15,14 @@ interface TradeJournalProps {
   onDeleteTrade: (tradeId: string) => void;
 }
 
+// Helper to get local ISO string for datetime-local input
+// This ensures the input shows the user's actual wall-clock time, not UTC
+const toLocalISOString = (date: Date) => {
+  const offset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+  const localDate = new Date(date.getTime() - offset);
+  return localDate.toISOString().slice(0, 16);
+};
+
 // Formats trade into: SPY 510C 251118
 const formatContractName = (ticker: string, strike?: number, type?: string, dateStr?: string) => {
   if (!strike || !type || !dateStr) return ticker;
@@ -102,9 +110,9 @@ const TradeDetailsModal: React.FC<{
 
   const checklistItems: { key: keyof DisciplineChecklist; label: string }[] = [
     { key: 'maxTradesRespected', label: 'Daily Trade Limit Respected' },
+    { key: 'maxRiskRespected', label: 'Risk Limit Respected' },
     { key: 'strategyMatch', label: 'In Strategy Plan' },
     { key: 'riskDefined', label: 'Risk Defined' },
-    { key: 'sizeWithinLimits', label: 'Size Within Limits' },
     { key: 'ivConditionsMet', label: 'IV Conditions Met' },
     { key: 'emotionalStateCheck', label: 'Emotionally Stable' },
   ];
@@ -544,37 +552,34 @@ const TradeDetailsModal: React.FC<{
           </form>
         ) : (
           <div className="p-6 space-y-8">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                {[
                  { l: 'P&L', v: trade.pnl ? `$${trade.pnl.toFixed(2)}` : '---', c: (trade.pnl||0)>0 ? 'text-emerald-500 dark:text-emerald-400' : (trade.pnl||0)<0 ? 'text-rose-500 dark:text-rose-400' : 'text-zinc-500', i: DollarSign },
                  { l: 'Entry Price', v: `$${trade.entryPrice.toFixed(2)}` },
                  { l: 'Exit Price', v: trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '---' },
-                 { l: 'Quantity', v: trade.quantity, i: Hash }
+                 { l: 'Quantity', v: trade.quantity, i: Hash },
+                 { 
+                   l: 'Target Price', 
+                   v: trade.targetPrice ? `$${trade.targetPrice.toFixed(2)}` : '---', 
+                   i: Target, 
+                   c: 'text-zinc-900 dark:text-white', 
+                   bg: 'border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10' 
+                 },
+                 { 
+                   l: 'Stop Loss', 
+                   v: trade.stopLossPrice ? `$${trade.stopLossPrice.toFixed(2)}` : '---', 
+                   i: ShieldAlert, 
+                   c: 'text-zinc-900 dark:text-white', 
+                   bg: 'border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-900/10' 
+                 }
                ].map((item: any) => (
-                 <div key={item.l} className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30 p-4">
-                   <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1">{item.i && <item.i className="h-3 w-3" />} {item.l}</p>
+                 <div key={item.l} className={`rounded-xl border p-4 ${item.bg || 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30'}`}>
+                   <p className={`text-xs mb-1 flex items-center gap-1 ${item.bg ? (item.bg.includes('rose') ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-zinc-500'}`}>
+                     {item.i && <item.i className="h-3 w-3" />} {item.l}
+                   </p>
                    <p className={`text-xl font-mono font-bold ${item.c || 'text-zinc-900 dark:text-zinc-200'}`}>{item.v}</p>
                  </div>
                ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10 p-4 flex flex-col justify-between">
-                   <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1 flex items-center gap-1">
-                     <Target className="h-3 w-3" /> Target Price
-                   </p>
-                   <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
-                     {trade.targetPrice ? `$${trade.targetPrice.toFixed(2)}` : '---'}
-                   </p>
-                </div>
-                <div className="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-900/10 p-4 flex flex-col justify-between">
-                   <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mb-1 flex items-center gap-1">
-                     <ShieldAlert className="h-3 w-3" /> Stop Loss
-                   </p>
-                   <p className="text-xl font-mono font-bold text-zinc-900 dark:text-white">
-                     {trade.stopLossPrice ? `$${trade.stopLossPrice.toFixed(2)}` : '---'}
-                   </p>
-                </div>
             </div>
 
             {/* Risk Warning in Details */}
@@ -680,6 +685,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
   const [showRiskWarning, setShowRiskWarning] = useState(false);
   const [pendingTrade, setPendingTrade] = useState<Trade | null>(null);
   const [riskDetails, setRiskDetails] = useState<{riskAmount: number, maxAllowed: number, percent: number} | null>(null);
+  const [pendingRiskRespected, setPendingRiskRespected] = useState(true);
 
   const [tickerSuggestions, setTickerSuggestions] = useState<string[]>([]);
   const [showTickerSuggestions, setShowTickerSuggestions] = useState(false);
@@ -703,10 +709,10 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
     checklist: {
       strategyMatch: false,
       riskDefined: false,
-      sizeWithinLimits: false,
       ivConditionsMet: false,
       emotionalStateCheck: false,
-      maxTradesRespected: false
+      maxTradesRespected: false,
+      maxRiskRespected: false
     }
   });
   
@@ -715,6 +721,21 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
   const displayedTrades = useMemo(() => {
     return hideClosed ? trades.filter(t => t.status === TradeStatus.OPEN) : trades;
   }, [trades, hideClosed]);
+
+  // Calculate projected trades for the new trade entry date
+  const projectedDailyActivity = useMemo(() => {
+    if (!newTrade.entryDate) return 0.5; // Default to just the new trade if date undefined
+    
+    const targetDate = new Date(newTrade.entryDate).toDateString();
+    let count = 0;
+    trades.forEach(t => {
+       if (new Date(t.entryDate).toDateString() === targetDate) count += 0.5;
+       if (t.exitDate && new Date(t.exitDate).toDateString() === targetDate) count += 0.5;
+    });
+    return count + 0.5; // Add 0.5 for the new entry
+  }, [trades, newTrade.entryDate]);
+
+  const isProjectedViolation = projectedDailyActivity > userSettings.maxTradesPerDay;
 
   useEffect(() => {
     const fetchVix = async () => {
@@ -752,33 +773,68 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
       setShowVixWarning(true);
       return;
     }
-    proceedToDisciplineGuard();
+    
+    // Reset form and auto-populate entry date with current local time for fresh trade
+    setNewTrade({
+        direction: TradeDirection.LONG,
+        optionType: OptionType.CALL,
+        quantity: 1,
+        status: TradeStatus.OPEN,
+        entryEmotion: Emotion.CALM,
+        ticker: '',
+        strikePrice: undefined,
+        entryPrice: undefined,
+        notes: '',
+        setup: '',
+        checklist: {
+            strategyMatch: false,
+            riskDefined: false,
+            ivConditionsMet: false,
+            emotionalStateCheck: false,
+            maxTradesRespected: false,
+            maxRiskRespected: false
+        },
+        entryDate: toLocalISOString(new Date())
+    });
+    
+    setShowAddModal(true);
   };
 
-  const proceedToDisciplineGuard = () => {
+  const proceedToDisciplineGuard = (trade: Trade) => {
     setShowVixWarning(false);
-    const todayStr = new Date().toDateString();
+    
+    // Calculate current trades count based on the ENTRY date selected in the form, not just "today"
+    const entryDateStr = new Date(trade.entryDate).toDateString();
     let count = 0;
     trades.forEach(t => {
-       if (new Date(t.entryDate).toDateString() === todayStr) count += 0.5;
-       if (t.exitDate && new Date(t.exitDate).toDateString() === todayStr) count += 0.5;
+       if (new Date(t.entryDate).toDateString() === entryDateStr) count += 0.5;
+       if (t.exitDate && new Date(t.exitDate).toDateString() === entryDateStr) count += 0.5;
     });
     setCurrentDailyTrades(count);
+
+    // Set pending trade for the guard
+    setPendingTrade(trade);
     setShowDisciplineGuard(true);
   };
 
   const handleDisciplineProceed = (checklist: DisciplineChecklist, score: number) => {
-    setNewTrade(prev => ({ ...prev, checklist, disciplineScore: score, entryDate: new Date().toISOString() }));
-    setShowDisciplineGuard(false);
-    setShowAddModal(true);
-  };
+    if (!pendingTrade) return;
 
-  const finalizeTradeSubmission = (trade: Trade) => {
-      onAddTrade(trade);
-      setShowAddModal(false);
-      setShowRiskWarning(false);
-      setPendingTrade(null);
-      setNewTrade({
+    // Merge the checklist and score into the pending trade
+    const finalTrade: Trade = {
+       ...pendingTrade,
+       checklist,
+       disciplineScore: score
+    };
+
+    // Save to global state
+    onAddTrade(finalTrade);
+    
+    // Reset Logic
+    setShowDisciplineGuard(false);
+    setShowRiskWarning(false);
+    setPendingTrade(null);
+    setNewTrade({
           direction: TradeDirection.LONG, 
           optionType: OptionType.CALL, 
           quantity: 1, 
@@ -787,12 +843,12 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
           checklist: {
             strategyMatch: false,
             riskDefined: false,
-            sizeWithinLimits: false,
             ivConditionsMet: false,
             emotionalStateCheck: false,
-            maxTradesRespected: false
+            maxTradesRespected: false,
+            maxRiskRespected: false
           }
-      });
+    });
   };
 
   const handleSubmitNewTrade = (e: React.FormEvent) => {
@@ -803,10 +859,12 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
     }
     if (!newTrade.ticker || !newTrade.entryPrice || !newTrade.strikePrice) return;
 
+    // Update popular tickers list
     if (newTrade.ticker && !availableTickers.includes(newTrade.ticker)) {
       setAvailableTickers(prev => [...prev, newTrade.ticker!].sort());
     }
 
+    // Auto-calculate targets if missing
     let target = newTrade.targetPrice;
     let stop = newTrade.stopLossPrice;
     if (!target || !stop) {
@@ -822,12 +880,33 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
        }
     }
 
+    // Calculate Risk
+    const riskPerShare = Math.abs(newTrade.entryPrice - (stop || 0));
+    const riskAmount = riskPerShare * (newTrade.quantity || 1) * 100; 
+    const realizedPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const totalBalance = initialCapital + realizedPnL;
+    const maxRiskPercent = userSettings.maxRiskPerTradePercent || 4; 
+    const maxAllowedRisk = totalBalance * (maxRiskPercent / 100);
+    const isRiskLimitRespected = riskAmount <= maxAllowedRisk;
+
+    // Update checklist based on risk calculation
+    const currentChecklist = {
+        strategyMatch: false,
+        riskDefined: false,
+        ivConditionsMet: false,
+        emotionalStateCheck: false,
+        maxTradesRespected: false,
+        maxRiskRespected: isRiskLimitRespected
+    };
+
+    setPendingRiskRespected(isRiskLimitRespected);
+
     const trade: Trade = {
       id: Date.now().toString(),
       ticker: newTrade.ticker.toUpperCase(),
       direction: newTrade.direction as TradeDirection,
       optionType: newTrade.optionType as OptionType,
-      entryDate: newTrade.entryDate || new Date().toISOString(),
+      entryDate: newTrade.entryDate || toLocalISOString(new Date()),
       expirationDate: newTrade.expirationDate || new Date().toISOString().split('T')[0],
       status: TradeStatus.OPEN,
       entryPrice: newTrade.entryPrice,
@@ -838,37 +917,25 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
       notes: newTrade.notes || '',
       setup: newTrade.setup || undefined,
       entryEmotion: newTrade.entryEmotion as Emotion,
-      checklist: newTrade.checklist!,
-      disciplineScore: newTrade.disciplineScore || 0,
+      checklist: currentChecklist, // Temporary, will be updated by guard
+      disciplineScore: 0, // Temporary
     };
 
-    // Calculate Risk
-    // For Option Contracts: Risk = |Entry - Stop| * Quantity * 100
-    // If stop loss is 0 or undefined, we can't calculate risk (or it's 100% of entry). 
-    // Assuming calculated stop loss is used if not provided manually.
-    const riskPerShare = Math.abs(trade.entryPrice - (trade.stopLossPrice || 0));
-    const riskAmount = riskPerShare * trade.quantity * 100; // 100 multiplier for options
-
-    // Calculate Total Balance
-    const realizedPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-    const totalBalance = initialCapital + realizedPnL;
-    
-    // Max Risk Allowance
-    const maxRiskPercent = userSettings.maxRiskPerTradePercent || 4; // Default to 4% if unset
-    const maxAllowedRisk = totalBalance * (maxRiskPercent / 100);
-
-    if (riskAmount > maxAllowedRisk) {
+    if (!isRiskLimitRespected) {
         setPendingTrade(trade);
         setRiskDetails({
             riskAmount,
             maxAllowed: maxAllowedRisk,
             percent: (riskAmount / totalBalance) * 100
         });
-        setShowRiskWarning(true);
+        setShowAddModal(false); // Close the form
+        setShowRiskWarning(true); // Show warning (which leads to guard)
         return;
     }
 
-    finalizeTradeSubmission(trade);
+    // No risk violation, proceed directly to Discipline Guard
+    setShowAddModal(false);
+    proceedToDisciplineGuard(trade);
   };
 
   const getVixStatus = (val: number) => {
@@ -950,7 +1017,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
                   <p className="text-2xl font-mono font-bold text-zinc-900 dark:text-white mb-1">VIX: {vixData.value.toFixed(2)}</p>
                </div>
                <div className="flex flex-col gap-3">
-                 <button onClick={proceedToDisciplineGuard} className={`w-full rounded-lg py-3 text-sm font-medium text-white shadow-lg transition-transform active:scale-95 ${vixData.value > 20 ? 'bg-rose-600 hover:bg-rose-500' : 'bg-amber-600 hover:bg-amber-500'}`}>I Acknowledge & Want to Proceed</button>
+                 <button onClick={() => { setShowVixWarning(false); setShowAddModal(true); }} className={`w-full rounded-lg py-3 text-sm font-medium text-white shadow-lg transition-transform active:scale-95 ${vixData.value > 20 ? 'bg-rose-600 hover:bg-rose-500' : 'bg-amber-600 hover:bg-amber-500'}`}>I Acknowledge & Want to Proceed</button>
                  <button onClick={() => setShowVixWarning(false)} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">Cancel Trade</button>
                </div>
             </div>
@@ -986,14 +1053,14 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
                   </div>
                </div>
                <div className="flex flex-col gap-3">
-                 <button onClick={() => { if(pendingTrade) finalizeTradeSubmission(pendingTrade); }} className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 py-3 text-sm font-medium text-white shadow-lg transition-transform active:scale-95">Proceed Anyway (High Risk)</button>
-                 <button onClick={() => { setShowRiskWarning(false); setPendingTrade(null); }} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">Edit Trade</button>
+                 <button onClick={() => { if(pendingTrade) { setShowRiskWarning(false); proceedToDisciplineGuard(pendingTrade); } }} className="w-full rounded-lg bg-rose-600 hover:bg-rose-500 py-3 text-sm font-medium text-white shadow-lg transition-transform active:scale-95">Proceed Anyway (High Risk)</button>
+                 <button onClick={() => { setShowRiskWarning(false); setShowAddModal(true); }} className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">Edit Trade</button>
                </div>
             </div>
           </div>
        )}
 
-       {showDisciplineGuard && <DisciplineGuard onProceed={handleDisciplineProceed} onCancel={() => setShowDisciplineGuard(false)} currentDailyTrades={currentDailyTrades} maxDailyTrades={userSettings.maxTradesPerDay} />}
+       {showDisciplineGuard && <DisciplineGuard onProceed={handleDisciplineProceed} onCancel={() => setShowDisciplineGuard(false)} currentDailyTrades={currentDailyTrades} maxDailyTrades={userSettings.maxTradesPerDay} isRiskRespected={pendingRiskRespected} />}
 
        {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4">
@@ -1042,6 +1109,18 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
                       <div>
                          <label className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Entry Price</label>
                          <input required type="number" step="0.01" className="w-full rounded bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" value={newTrade.entryPrice || ''} onChange={e => setNewTrade({...newTrade, entryPrice: parseFloat(e.target.value)})} />
+                      </div>
+                      <div>
+                         <label className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Entry Date</label>
+                         <input required type="datetime-local" className="w-full rounded bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" value={newTrade.entryDate ? newTrade.entryDate.slice(0,16) : ''} onChange={e => setNewTrade({...newTrade, entryDate: e.target.value})} />
+                         {/* Projected Activity Info */}
+                         <div className={`mt-2 flex items-center gap-2 rounded px-3 py-2 text-xs font-medium border ${isProjectedViolation ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-500' : 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400'}`}>
+                            {isProjectedViolation ? <AlertTriangle className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
+                            <div className="flex-1">
+                               <span>Projected Daily Trades: <span className="font-mono">{projectedDailyActivity}</span> / <span className="font-mono">{userSettings.maxTradesPerDay}</span></span>
+                               {isProjectedViolation && <span className="block font-bold mt-0.5">Warning: This exceeds your daily limit!</span>}
+                            </div>
+                         </div>
                       </div>
                        <div>
                          <label className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Quantity</label>

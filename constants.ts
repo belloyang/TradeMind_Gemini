@@ -1,3 +1,4 @@
+
 import { Trade, TradeDirection, OptionType, Emotion, TradeStatus } from './types';
 
 export const DIRECTIONS = Object.values(TradeDirection);
@@ -44,10 +45,10 @@ export const INITIAL_TRADES: Trade[] = [
     checklist: {
       strategyMatch: true,
       riskDefined: true,
-      sizeWithinLimits: true,
       ivConditionsMet: true,
       emotionalStateCheck: true,
       maxTradesRespected: true,
+      maxRiskRespected: true,
     },
     disciplineScore: 100,
   },
@@ -71,10 +72,10 @@ export const INITIAL_TRADES: Trade[] = [
     checklist: {
       strategyMatch: false, // Violation
       riskDefined: true,
-      sizeWithinLimits: true,
       ivConditionsMet: false, // Violation
       emotionalStateCheck: false, // Violation
       maxTradesRespected: true,
+      maxRiskRespected: true,
     },
     disciplineScore: 40,
     violationReason: 'Chasing momentum without strategy alignment',
@@ -97,10 +98,10 @@ export const INITIAL_TRADES: Trade[] = [
     checklist: {
       strategyMatch: true,
       riskDefined: true,
-      sizeWithinLimits: true,
       ivConditionsMet: true,
       emotionalStateCheck: true,
       maxTradesRespected: true,
+      maxRiskRespected: true,
     },
     disciplineScore: 100,
   },

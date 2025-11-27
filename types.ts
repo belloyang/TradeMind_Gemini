@@ -26,10 +26,10 @@ export enum TradeStatus {
 export interface DisciplineChecklist {
   strategyMatch: boolean;
   riskDefined: boolean;
-  sizeWithinLimits: boolean;
   ivConditionsMet: boolean;
   emotionalStateCheck: boolean;
   maxTradesRespected: boolean;
+  maxRiskRespected: boolean;
 }
 
 export interface Trade {
