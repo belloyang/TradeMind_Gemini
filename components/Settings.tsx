@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
-  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download, Upload, FileJson, TrendingDown
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download, Upload, FileJson, TrendingDown, Receipt
 } from 'lucide-react';
 import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings, UserProfile } from '../types';
 
@@ -77,7 +77,7 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
         <div className="p-6 space-y-8">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30 p-4">
-              <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><DollarSign className="h-3 w-3" /> P&L</p>
+              <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><DollarSign className="h-3 w-3" /> Net P&L</p>
               <p className={`text-xl font-mono font-bold ${
                 (trade.pnl || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-400'
               }`}>
@@ -99,6 +99,16 @@ const HistoricalTradeModal: React.FC<{ trade: Trade; onClose: () => void }> = ({
               <p className="text-xl font-mono font-bold text-zinc-900 dark:text-zinc-200">{trade.quantity}</p>
             </div>
           </div>
+          
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {/* Fees Card */}
+               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30 p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Receipt className="h-3 w-3" /> Commission / Fees</p>
+                    <p className="text-lg font-mono font-bold text-zinc-900 dark:text-zinc-200">${(trade.fees || 0).toFixed(2)}</p>
+                  </div>
+               </div>
+            </div>
 
           <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10 p-4 flex flex-col justify-between">
@@ -221,13 +231,13 @@ const Settings: React.FC<SettingsProps> = ({
       alert("No trades to export.");
       return;
     }
-    const headers = ["Date", "Ticker", "Direction", "Type", "Strike", "Expiration", "Setup", "Entry Price", "Exit Price", "Quantity", "P&L", "Status", "Notes", "Entry Emotion", "Discipline Score"];
+    const headers = ["Date", "Ticker", "Direction", "Type", "Strike", "Expiration", "Setup", "Entry Price", "Exit Price", "Quantity", "Fees", "P&L", "Status", "Notes", "Entry Emotion", "Discipline Score"];
     const csvContent = [
       headers.join(','),
       ...trades.map(t => {
         const date = new Date(t.entryDate).toLocaleDateString();
         const cleanNotes = (t.notes || '').replace(/"/g, '""');
-        return [date, t.ticker, t.direction, t.optionType, t.strikePrice || '', t.expirationDate || '', t.setup || '', t.entryPrice, t.exitPrice || '', t.quantity, t.pnl || '', t.status, `"${cleanNotes}"`, t.entryEmotion, t.disciplineScore].join(',');
+        return [date, t.ticker, t.direction, t.optionType, t.strikePrice || '', t.expirationDate || '', t.setup || '', t.entryPrice, t.exitPrice || '', t.quantity, t.fees || 0, t.pnl || '', t.status, `"${cleanNotes}"`, t.entryEmotion, t.disciplineScore].join(',');
       })
     ].join('\n');
 

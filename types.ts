@@ -45,6 +45,7 @@ export interface Trade {
   exitPrice?: number;
   strikePrice?: number;
   quantity: number;
+  fees?: number; // Commissions & Fees
   
   // Risk Management
   targetPrice?: number;

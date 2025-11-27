@@ -39,7 +39,8 @@ export const INITIAL_TRADES: Trade[] = [
     exitPrice: 1.20,
     strikePrice: 510,
     quantity: 5,
-    pnl: 650, // (2.50 - 1.20) * 5 * 100
+    fees: 3.25, // Sample fees
+    pnl: 646.75, // (2.50 - 1.20) * 5 * 100 - 3.25
     notes: 'Selling puts at support level. High IV rank.',
     entryEmotion: Emotion.CALM,
     checklist: {
@@ -65,7 +66,8 @@ export const INITIAL_TRADES: Trade[] = [
     exitPrice: 10.00,
     strikePrice: 900,
     quantity: 1,
-    pnl: -500,
+    fees: 0.65,
+    pnl: -500.65, // (10 - 15) * 100 - 0.65
     notes: 'Chased the breakout. Should have waited for retest.',
     entryEmotion: Emotion.FOMO,
     checklist: {
@@ -91,6 +93,7 @@ export const INITIAL_TRADES: Trade[] = [
     stopLossPrice: 3.84,
     strikePrice: 170,
     quantity: 2,
+    fees: 1.30,
     notes: 'Selling puts at support level.',
     entryEmotion: Emotion.CONFIDENT,
     checklist: {

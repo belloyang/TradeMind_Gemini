@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Trash2, StopCircle, RefreshCcw, Search, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Tag, Zap, Eye, EyeOff } from 'lucide-react';
+import { Plus, X, DollarSign, Hash, Activity, Brain, Check, AlertTriangle, Clock, Edit2, Trash2, StopCircle, RefreshCcw, Search, Loader2, Target, ShieldAlert, PartyPopper, ThumbsUp, Tag, Zap, Eye, EyeOff, ArrowUp, ArrowDown, Receipt } from 'lucide-react';
 import { Trade, TradeDirection, OptionType, Emotion, DisciplineChecklist, TradeStatus, UserSettings } from '../types';
 import { DIRECTIONS, OPTION_TYPES, EMOTIONS, POPULAR_TICKERS, COMMON_SETUPS } from '../constants';
 import DisciplineGuard from './DisciplineGuard';
@@ -186,7 +186,8 @@ const TradeDetailsModal: React.FC<{
         // Force calculation if exit price is set
         if (updatedTrade.exitPrice !== undefined && updatedTrade.entryPrice !== undefined) {
              const directionMultiplier = updatedTrade.direction === TradeDirection.LONG ? 1 : -1;
-             updatedTrade.pnl = (updatedTrade.exitPrice - updatedTrade.entryPrice) * updatedTrade.quantity * 100 * directionMultiplier;
+             const grossPnL = (updatedTrade.exitPrice - updatedTrade.entryPrice) * updatedTrade.quantity * 100 * directionMultiplier;
+             updatedTrade.pnl = grossPnL - (updatedTrade.fees || 0);
         }
         // Ensure exit date exists
         if (!updatedTrade.exitDate) {
@@ -233,7 +234,8 @@ const TradeDetailsModal: React.FC<{
       updatedTrade.exitPrice = exitPrice;
       updatedTrade.exitDate = new Date().toISOString();
       const directionMultiplier = trade.direction === TradeDirection.LONG ? 1 : -1;
-      updatedTrade.pnl = (exitPrice - trade.entryPrice) * trade.quantity * 100 * directionMultiplier;
+      const grossPnL = (exitPrice - trade.entryPrice) * trade.quantity * 100 * directionMultiplier;
+      updatedTrade.pnl = grossPnL - (trade.fees || 0);
       updatedTrade.exitEmotion = trade.exitEmotion || Emotion.CALM;
     } else {
       updatedTrade.exitPrice = undefined;
@@ -292,7 +294,7 @@ const TradeDetailsModal: React.FC<{
                     </h3>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
                       {trade.status === TradeStatus.OPEN 
-                        ? "Confirming will calculate P&L based on the exit price below."
+                        ? "Confirming will calculate Net P&L (Gross - Fees) based on the exit price below."
                         : "Re-opening this trade will clear the current P&L and Exit Price."}
                     </p>
                     {trade.status === TradeStatus.OPEN && (
@@ -493,14 +495,15 @@ const TradeDetailsModal: React.FC<{
                   { l: 'Entry Price', t: 'number', k: 'entryPrice', s: '0.01' },
                   { l: 'Quantity', t: 'number', k: 'quantity' },
                   { l: 'Strike Price', t: 'number', k: 'strikePrice', s: '0.5' },
-                  { l: 'Expiration Date', t: 'date', k: 'expirationDate' }
+                  { l: 'Expiration Date', t: 'date', k: 'expirationDate' },
+                  { l: 'Commission / Fees', t: 'number', k: 'fees', s: '0.01' }
                 ].map((f: any) => (
                   <div key={f.l}>
                     <label className="mb-2 block text-xs text-zinc-500 dark:text-zinc-400">{f.l}</label>
                     <input 
                       required={f.k === 'strikePrice' || f.k === 'expirationDate'}
                       type={f.t} step={f.s}
-                      value={f.v !== undefined ? f.v : (editForm as any)[f.k]}
+                      value={f.v !== undefined ? f.v : (editForm as any)[f.k] ?? ''}
                       onChange={e => setEditForm({...editForm, [f.k]: f.t === 'number' ? parseFloat(e.target.value) : e.target.value})}
                       className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                     />
@@ -553,7 +556,7 @@ const TradeDetailsModal: React.FC<{
           <div className="p-6 space-y-8">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                {[
-                 { l: 'P&L', v: trade.pnl ? `$${trade.pnl.toFixed(2)}` : '---', c: (trade.pnl||0)>0 ? 'text-emerald-500 dark:text-emerald-400' : (trade.pnl||0)<0 ? 'text-rose-500 dark:text-rose-400' : 'text-zinc-500', i: DollarSign },
+                 { l: 'Net P&L', v: trade.pnl ? `$${trade.pnl.toFixed(2)}` : '---', c: (trade.pnl||0)>0 ? 'text-emerald-500 dark:text-emerald-400' : (trade.pnl||0)<0 ? 'text-rose-500 dark:text-rose-400' : 'text-zinc-500', i: DollarSign },
                  { l: 'Entry Price', v: `$${trade.entryPrice.toFixed(2)}` },
                  { l: 'Exit Price', v: trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '---' },
                  { l: 'Quantity', v: trade.quantity, i: Hash },
@@ -579,6 +582,16 @@ const TradeDetailsModal: React.FC<{
                    <p className={`text-xl font-mono font-bold ${item.c || 'text-zinc-900 dark:text-zinc-200'}`}>{item.v}</p>
                  </div>
                ))}
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {/* Fees Card */}
+               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30 p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1"><Receipt className="h-3 w-3" /> Commission / Fees</p>
+                    <p className="text-lg font-mono font-bold text-zinc-900 dark:text-zinc-200">${(trade.fees || 0).toFixed(2)}</p>
+                  </div>
+               </div>
             </div>
 
             {/* Risk Warning in Details */}
@@ -698,6 +711,8 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
   ])).sort();
 
   const [hideClosed, setHideClosed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'entryDate', direction: 'desc' });
 
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
     direction: TradeDirection.LONG,
@@ -717,23 +732,65 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
   const [currentDailyTrades, setCurrentDailyTrades] = useState(0);
 
   const displayedTrades = useMemo(() => {
-    return hideClosed ? trades.filter(t => t.status === TradeStatus.OPEN) : trades;
-  }, [trades, hideClosed]);
-
-  // Calculate projected trades for the new trade entry date
-  const projectedDailyActivity = useMemo(() => {
-    if (!newTrade.entryDate) return 0.5; // Default to just the new trade if date undefined
+    let filtered = trades;
     
+    // Filter by closed status
+    if (hideClosed) {
+      filtered = filtered.filter(t => t.status === TradeStatus.OPEN);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.ticker.toLowerCase().includes(query) ||
+        (t.notes || '').toLowerCase().includes(query) ||
+        (t.setup || '').toLowerCase().includes(query) ||
+        t.status.toLowerCase().includes(query) ||
+        t.direction.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort
+    return [...filtered].sort((a, b) => {
+      let aValue: any = (a as any)[sortConfig.key];
+      let bValue: any = (b as any)[sortConfig.key];
+      
+      // Handle special sorting cases
+      if (sortConfig.key === 'contract') {
+        aValue = formatContractName(a.ticker, a.strikePrice, a.optionType, a.expirationDate);
+        bValue = formatContractName(b.ticker, b.strikePrice, b.optionType, b.expirationDate);
+      }
+      
+      // Handle null/undefined values for P&L
+      if (sortConfig.key === 'pnl') {
+        aValue = a.pnl ?? -Infinity;
+        bValue = b.pnl ?? -Infinity;
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [trades, hideClosed, searchQuery, sortConfig]);
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const isProjectedViolation = useMemo(() => {
+    if (!newTrade.entryDate) return false;
     const targetDate = new Date(newTrade.entryDate).toDateString();
     let count = 0;
     trades.forEach(t => {
        if (new Date(t.entryDate).toDateString() === targetDate) count += 0.5;
        if (t.exitDate && new Date(t.exitDate).toDateString() === targetDate) count += 0.5;
     });
-    return count + 0.5; // Add 0.5 for the new entry
-  }, [trades, newTrade.entryDate]);
-
-  const isProjectedViolation = projectedDailyActivity > userSettings.maxTradesPerDay;
+    return (count + 0.5) > userSettings.maxTradesPerDay;
+  }, [trades, newTrade.entryDate, userSettings.maxTradesPerDay]);
 
   useEffect(() => {
     const fetchVix = async () => {
@@ -780,6 +837,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
         entryPrice: undefined,
         notes: '',
         setup: '',
+        fees: undefined,
         checklist: {
             strategyMatch: false,
             ivConditionsMet: false,
@@ -910,6 +968,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
       quantity: newTrade.quantity || 1,
       targetPrice: parseFloat(target?.toFixed(2) || '0'),
       stopLossPrice: parseFloat(stop?.toFixed(2) || '0'),
+      fees: newTrade.fees,
       notes: newTrade.notes || '',
       setup: newTrade.setup || undefined,
       entryEmotion: newTrade.entryEmotion as Emotion,
@@ -983,9 +1042,22 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
          )}
        </div>
 
-       <div className="flex items-center justify-between">
+       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Trade History</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            
+            {/* Search Input */}
+            <div className="relative flex-1 sm:flex-initial">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <input 
+                type="text"
+                placeholder="Search trades..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full sm:w-48 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 pl-9 pr-3 py-2 text-sm text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none placeholder-zinc-400"
+              />
+            </div>
+
             <button 
               onClick={() => setHideClosed(!hideClosed)}
               className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
@@ -995,7 +1067,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
             </button>
             <button 
               onClick={handleStartAddTrade}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
             >
               <Plus className="h-4 w-4" /> Log New Trade
             </button>
@@ -1118,6 +1190,10 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
                          <label className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Emotion</label>
                          <select className="w-full rounded bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" value={newTrade.entryEmotion} onChange={e => setNewTrade({...newTrade, entryEmotion: e.target.value as Emotion})}>{EMOTIONS.map(e => <option key={e} value={e}>{e}</option>)}</select>
                       </div>
+                      <div>
+                         <label className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Commission / Fees</label>
+                         <input type="number" step="0.01" className="w-full rounded bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" value={newTrade.fees || ''} onChange={e => setNewTrade({...newTrade, fees: parseFloat(e.target.value)})} placeholder="0.00" />
+                      </div>
                    </div>
                    
                    <div>
@@ -1164,18 +1240,33 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
           <table className="w-full text-left text-sm">
              <thead className="bg-zinc-50 dark:bg-zinc-900 text-xs uppercase text-zinc-500">
                <tr>
-                 <th className="px-6 py-4">Date</th>
-                 <th className="px-6 py-4">Contract</th>
-                 <th className="px-6 py-4">Side</th>
-                 <th className="px-6 py-4">Status</th>
-                 <th className="px-6 py-4">Discipline</th>
-                 <th className="px-6 py-4 text-right">P&L</th>
+                 {[
+                   { k: 'entryDate', l: 'Date' },
+                   { k: 'contract', l: 'Contract' },
+                   { k: 'direction', l: 'Side' },
+                   { k: 'status', l: 'Status' },
+                   { k: 'disciplineScore', l: 'Discipline' },
+                   { k: 'pnl', l: 'P&L', align: 'right' }
+                 ].map((col) => (
+                   <th 
+                     key={col.k} 
+                     className={`px-6 py-4 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                     onClick={() => handleSort(col.k)}
+                   >
+                     <div className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : ''}`}>
+                       {col.l}
+                       {sortConfig.key === col.k && (
+                         sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                       )}
+                     </div>
+                   </th>
+                 ))}
                </tr>
              </thead>
              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                {displayedTrades.length === 0 ? (
                  <tr><td colSpan={6} className="px-6 py-12 text-center text-zinc-500">
-                    {hideClosed && trades.length > 0 ? "No open trades found." : "No trades logged yet. Click \"Log New Trade\" to start."}
+                    {searchQuery ? "No trades match your search." : (hideClosed && trades.length > 0 ? "No open trades found." : "No trades logged yet. Click \"Log New Trade\" to start.")}
                  </td></tr>
                ) : (
                  displayedTrades.map(trade => (
@@ -1195,7 +1286,6 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
                      <td className="px-6 py-4">
                        <div className="flex items-center gap-2">
                           <span className={`rounded-full px-2 py-1 text-xs font-medium ${trade.status === TradeStatus.OPEN ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700/50 dark:text-zinc-400'}`}>{trade.status}</span>
-                          {getOutcomeIcon(trade)}
                        </div>
                      </td>
                      <td className="px-6 py-4">
@@ -1207,7 +1297,10 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ trades, userSettings, initi
                         </div>
                      </td>
                      <td className={`px-6 py-4 text-right font-mono font-medium ${(trade.pnl || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : (trade.pnl || 0) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500'}`}>
-                        {trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toFixed(2)}` : '-'}
+                        <div className="flex items-center justify-end gap-2">
+                          {getOutcomeIcon(trade)}
+                          <span>{trade.pnl ? `${trade.pnl > 0 ? '+' : ''}$${trade.pnl.toFixed(2)}` : '-'}</span>
+                        </div>
                       </td>
                    </tr>
                  ))
