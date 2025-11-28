@@ -1,8 +1,6 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut, Sun, Moon, Loader2 } from 'lucide-react';
 import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
-import { INITIAL_TRADES } from './constants';
 import Dashboard from './components/Dashboard';
 import TradeJournal from './components/TradeJournal';
 import Analytics from './components/Analytics';
@@ -10,8 +8,8 @@ import AICoach from './components/AICoach';
 import SettingsPage from './components/Settings';
 import AuthScreen from './components/AuthScreen';
 import SplashScreen from './components/SplashScreen';
+import { dataService } from './services/dataService';
 
-const STORAGE_KEY = 'trademind_data_v1';
 const THEME_KEY = 'trademind_theme';
 
 const App: React.FC = () => {
@@ -32,45 +30,28 @@ const App: React.FC = () => {
   const isDarkMode = theme === 'dark';
 
   // --- User Management State ---
-  const [users, setUsers] = useState<UserProfile[]>(() => {
-    try {
-      const savedData = localStorage.getItem(STORAGE_KEY);
-      if (savedData) {
-        return JSON.parse(savedData);
-      }
-    } catch (e) {
-      console.error("Failed to load from local storage", e);
-    }
-    
-    // Default initial state if no storage found
-    return [
-      {
-        id: 'demo-user',
-        name: 'Demo Trader',
-        trades: INITIAL_TRADES,
-        initialCapital: 10000,
-        startDate: new Date('2024-05-01').toISOString(),
-        archives: [],
-        settings: {
-          defaultTargetPercent: 40,
-          defaultStopLossPercent: 20,
-          maxTradesPerDay: 3,
-          maxRiskPerTradePercent: 4 // Default 4%
-        }
-      }
-    ];
-  });
-
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // --- UI State ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'analytics' | 'settings'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // --- Persistence Effect ---
+  // --- Initial Data Load ---
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-  }, [users]);
+    const loadData = async () => {
+      try {
+        const loadedUsers = await dataService.loadUsers();
+        setUsers(loadedUsers);
+      } catch (e) {
+        console.error("Failed to load users", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   // --- Theme Effect ---
   useEffect(() => {
@@ -97,9 +78,13 @@ const App: React.FC = () => {
   , [users, activeUserId]);
 
   // --- Helpers ---
-  const updateActiveUser = (updater: (user: UserProfile) => UserProfile) => {
+  // Note: We now save to DB immediately after state updates in the handlers
+  const updateActiveUser = async (updater: (user: UserProfile) => UserProfile) => {
     if (!activeUserId) return;
-    setUsers(prev => prev.map(u => u.id === activeUserId ? updater(u) : u));
+    
+    const updatedUsers = users.map(u => u.id === activeUserId ? updater(u) : u);
+    setUsers(updatedUsers);
+    await dataService.saveUsers(updatedUsers);
   };
 
   const toggleTheme = () => {
@@ -151,7 +136,7 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const handleCreateUser = (userData: { name: string; initialCapital: number; password?: string; securityQuestion?: string; securityAnswer?: string }) => {
+  const handleCreateUser = async (userData: { name: string; initialCapital: number; password?: string; securityQuestion?: string; securityAnswer?: string }) => {
     const newUser: UserProfile = {
       id: Date.now().toString(),
       name: userData.name,
@@ -169,13 +154,19 @@ const App: React.FC = () => {
       securityQuestion: userData.securityQuestion,
       securityAnswer: userData.securityAnswer
     };
-    setUsers(prev => [...prev, newUser]);
+    
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    await dataService.saveUsers(updatedUsers);
+    
     setActiveUserId(newUser.id);
     setActiveTab('dashboard');
   };
 
-  const handleResetPassword = (userId: string, newPassword: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, password: newPassword } : u));
+  const handleResetPassword = async (userId: string, newPassword: string) => {
+    const updatedUsers = users.map(u => u.id === userId ? { ...u, password: newPassword } : u);
+    setUsers(updatedUsers);
+    await dataService.saveUsers(updatedUsers);
   };
 
   const handleLogout = () => {
@@ -232,7 +223,7 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const handleImportProfile = (importedProfile: UserProfile) => {
+  const handleImportProfile = async (importedProfile: UserProfile) => {
     if (!activeUserId) return;
     
     // Validate key fields
@@ -241,9 +232,8 @@ const App: React.FC = () => {
       return;
     }
 
-    // Confirm overwrite
     if (window.confirm(`This will overwrite the current profile for "${activeUser?.name}" with data from "${importedProfile.name}". This cannot be undone. Are you sure?`)) {
-       updateActiveUser(u => ({
+       await updateActiveUser(u => ({
          ...importedProfile,
          id: u.id, // Keep the current ID/auth reference
          password: u.password, // Keep current security credentials
@@ -264,6 +254,17 @@ const App: React.FC = () => {
 
   if (showSplash) {
     return <SplashScreen />;
+  }
+
+  if (isLoading) {
+     return (
+        <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white">
+           <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              <p>Loading Journal Database...</p>
+           </div>
+        </div>
+     );
   }
 
   if (!activeUser) {
