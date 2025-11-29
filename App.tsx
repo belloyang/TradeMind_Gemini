@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut, Sun, Moon, Loader2, Sparkles } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut, Sun, Moon, Loader2, Sparkles, MessageSquare } from 'lucide-react';
 import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
 import Dashboard from './components/Dashboard';
 import TradeJournal from './components/TradeJournal';
@@ -11,6 +11,7 @@ import AuthScreen from './components/AuthScreen';
 import SplashScreen from './components/SplashScreen';
 import PricingModal from './components/PricingModal';
 import { dataService } from './services/dataService';
+import { paymentService } from './services/paymentService';
 
 const THEME_KEY = 'trademind_theme';
 
@@ -75,6 +76,17 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // --- Check for Payment Success (Redirect) ---
+  useEffect(() => {
+    if (paymentService.checkPaymentSuccess() && activeUserId) {
+      updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' }));
+      // Clear URL params
+      window.history.replaceState({}, document.title, window.location.pathname);
+      alert("Payment successful! Pro features unlocked.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUserId]);
+
   // --- Derived Active User ---
   const activeUser = useMemo(() => 
     users.find(u => u.id === activeUserId) || null
@@ -120,7 +132,8 @@ const App: React.FC = () => {
       id: Date.now().toString(), name: userData.name, initialCapital: userData.initialCapital, startDate: new Date().toISOString(), trades: [], archives: [],
       settings: { defaultTargetPercent: 30, defaultStopLossPercent: 15, maxTradesPerDay: 5, maxRiskPerTradePercent: 4, checklistConfig: [] },
       password: userData.password, securityQuestion: userData.securityQuestion, securityAnswer: userData.securityAnswer,
-      subscriptionTier: 'free'
+      // SOFT LAUNCH: Give everyone PRO access by default during beta
+      subscriptionTier: 'pro'
     };
     setUsers(prev => [...prev, newUser]); await dataService.saveUser(newUser); setActiveUserId(newUser.id); setActiveTab('dashboard');
   };
@@ -156,13 +169,15 @@ const App: React.FC = () => {
   const handleTabChange = (tab: typeof activeTab) => { setActiveTab(tab); setIsMobileMenuOpen(false); };
 
   const handleUpgrade = async () => {
-    // This is where you would integrate Stripe Checkout
-    const confirmed = window.confirm("Simulating Payment Process...\n\nClick OK to successfully upgrade to Pro!");
-    if (confirmed) {
-      await updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' }));
-      setShowPricing(false);
-      alert("Welcome to Pro! AI Coach is now unlocked.");
+    // SOFT LAUNCH: Just toggle for now if testing manually
+    // In production, this would call paymentService.initiateCheckout(activeUser)
+    
+    // For Beta feedback loop
+    alert("During the Beta period, all Pro features are free! Enjoy.");
+    if (activeUser?.subscriptionTier === 'free') {
+       await updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' }));
     }
+    setShowPricing(false);
   };
 
   // --- Render ---
@@ -196,7 +211,7 @@ const App: React.FC = () => {
           <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={20} />} label="Analytics" />
           <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={20} />} label="Settings" />
 
-          {/* Upgrade Button in Nav */}
+          {/* Upgrade Button Hidden During Beta or if already Pro */}
           {activeUser.subscriptionTier === 'free' && (
              <div className="mt-4 px-2">
                 <button 
@@ -209,12 +224,16 @@ const App: React.FC = () => {
                 </button>
              </div>
           )}
-
+          
           <div className="mt-auto pt-4 border-t border-zinc-200 dark:border-zinc-800 w-full">
-             <button onClick={toggleTheme} className="mb-4 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}{isDarkMode ? 'Light Mode' : 'Dark Mode'}</button>
+             {/* Feedback Link for Soft Launch */}
+             <a href="mailto:support@trademind.app?subject=TradeMind Beta Feedback" className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
+               <MessageSquare size={18} /> Give Feedback
+             </a>
+             <button onClick={toggleTheme} className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}{isDarkMode ? 'Light Mode' : 'Dark Mode'}</button>
              <div className="px-4 py-3 mb-2 flex items-center gap-3 rounded-lg bg-zinc-100 dark:bg-zinc-900/50">
                <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">{activeUser.name.charAt(0).toUpperCase()}</div>
-               <div className="overflow-hidden"><p className="text-sm font-medium truncate">{activeUser.name}</p><p className="text-[10px] text-zinc-500 truncate capitalize">{activeUser.subscriptionTier} Plan</p></div>
+               <div className="overflow-hidden"><p className="text-sm font-medium truncate">{activeUser.name}</p><p className="text-[10px] text-zinc-500 truncate capitalize">Beta User</p></div>
              </div>
              <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-rose-500"><LogOut size={20} /> Sign Out</button>
           </div>
@@ -231,6 +250,10 @@ const App: React.FC = () => {
               <NavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon={<BarChart2 size={20} />} label="Analytics" />
               <NavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon={<Settings size={20} />} label="Settings" />
               
+              <a href="mailto:support@trademind.app?subject=TradeMind Beta Feedback" className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 py-3 text-sm font-bold text-emerald-600">
+                  <MessageSquare size={16} /> Give Feedback
+              </a>
+
                {activeUser.subscriptionTier === 'free' && (
                 <button onClick={() => { setIsMobileMenuOpen(false); setShowPricing(true); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-3 text-sm font-bold text-white">
                   <Sparkles size={16} /> Upgrade to Pro

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
-  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download, Upload, FileJson, TrendingDown, Receipt
+  ChevronLeft, X, DollarSign, Hash, Activity, Check, Brain, Target, ShieldAlert, Layers, Download, Upload, FileJson, TrendingDown, Receipt, HelpCircle, Mail, FileText, Shield
 } from 'lucide-react';
 import { ArchivedSession, Trade, TradeStatus, DisciplineChecklist, UserSettings, UserProfile } from '../types';
 
@@ -340,6 +340,33 @@ const Settings: React.FC<SettingsProps> = ({
       <div className="flex items-center gap-3 mb-6">
         <Wallet className="h-6 w-6 text-indigo-500" />
         <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Account Settings</h2>
+      </div>
+
+      {/* Support & Compliance Section (New for Monetization/Trust) */}
+      <div className="rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/10 p-6 shadow-sm">
+         <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-200 mb-4 flex items-center gap-2">
+           <HelpCircle className="h-5 w-5" /> Support & Compliance
+         </h3>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+               <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Need Help?</h4>
+               <p className="text-xs text-zinc-500 dark:text-zinc-400">Our support team is available M-F 9am-5pm EST.</p>
+               <a href="mailto:support@trademind.app" className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
+                 <Mail className="h-4 w-4" /> Contact Support
+               </a>
+            </div>
+            <div className="space-y-3">
+               <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Legal Resources</h4>
+               <div className="flex flex-col gap-2">
+                 <a href="#" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                    <FileText className="h-4 w-4" /> Terms of Service
+                 </a>
+                 <a href="#" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                    <Shield className="h-4 w-4" /> Privacy Policy
+                 </a>
+               </div>
+            </div>
+         </div>
       </div>
 
       {/* Risk Configuration */}

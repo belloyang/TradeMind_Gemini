@@ -67,7 +67,8 @@ class IndexedDBService implements DataService {
                   maxRiskPerTradePercent: 4,
                   checklistConfig: []
                 },
-                subscriptionTier: 'free'
+                // SOFT LAUNCH: Default to 'pro' so users can test features
+                subscriptionTier: 'pro'
             };
             // Seed the DB
             this.saveUser(defaultUser).then(() => resolve([defaultUser]));

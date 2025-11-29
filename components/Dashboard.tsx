@@ -1,9 +1,10 @@
+
 import React, { useMemo } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Cell 
 } from 'recharts';
-import { TrendingUp, Activity, Target, Wallet } from 'lucide-react';
+import { TrendingUp, Activity, Target, Wallet, Info } from 'lucide-react';
 import { Trade, Metrics } from '../types';
 
 interface DashboardProps {
@@ -76,6 +77,20 @@ const Dashboard: React.FC<DashboardProps> = ({ trades, metrics, initialCapital, 
 
   return (
     <div className="space-y-6">
+      
+      {/* Beta Welcome Banner */}
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50 dark:border-indigo-500/20 dark:bg-indigo-900/10 p-4 flex items-start gap-3">
+         <Info className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-0.5" />
+         <div>
+            <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Welcome to the TradeMind Beta!</h3>
+            <p className="text-sm text-indigo-700 dark:text-indigo-400 mt-1">
+              All "Pro" features (AI Coach, unlimited trades) are unlocked for free during this testing period. 
+              Please help me improve the app by providing feedback via the button in the sidebar. 
+              <br/><strong>Note:</strong> Data is currently stored on this device only. Use the "Backup" feature in Settings to save your data safely.
+            </p>
+         </div>
+      </div>
+
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         
