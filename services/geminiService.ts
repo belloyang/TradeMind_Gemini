@@ -1,17 +1,42 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Trade, OptionType } from "../types";
 
+const getApiKey = () => {
+  // Support Vite, Create React App, and standard process.env
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+    // @ts-ignore
+    return import.meta.env.VITE_API_KEY;
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.REACT_APP_API_KEY || process.env.API_KEY;
+  }
+  return null;
+};
+
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("API Key not found in process.env.API_KEY");
+    console.warn("API Key not found. Please set VITE_API_KEY or REACT_APP_API_KEY.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
 };
 
 // --- Polygon Integration Helpers ---
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY; 
+const getPolygonKey = () => {
+   // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_POLYGON_API_KEY) {
+    // @ts-ignore
+    return import.meta.env.VITE_POLYGON_API_KEY;
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.REACT_APP_POLYGON_API_KEY || process.env.POLYGON_API_KEY;
+  }
+  return null;
+}
+const POLYGON_API_KEY = getPolygonKey();
 
 const formatPolygonOptionTicker = (trade: Trade): string | null => {
   if (!trade.expirationDate || !trade.strikePrice || !trade.optionType) return null;
