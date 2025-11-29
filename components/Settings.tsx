@@ -357,10 +357,10 @@ const Settings: React.FC<SettingsProps> = ({
             <div className="space-y-3">
                <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Legal Resources</h4>
                <div className="flex flex-col gap-2">
-                 <a href="#" title="Coming soon for production launch" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                 <a href="#" title="Placeholder for Beta - No real terms yet" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
                     <FileText className="h-4 w-4" /> Terms of Service
                  </a>
-                 <a href="#" title="Coming soon for production launch" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                 <a href="#" title="Placeholder for Beta - No real policy yet" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
                     <Shield className="h-4 w-4" /> Privacy Policy
                  </a>
                </div>
