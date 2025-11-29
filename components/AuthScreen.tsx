@@ -113,7 +113,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ users, onLogin, onCreateUser, o
                 <span className="font-mono text-3xl font-bold text-white">T</span>
               </div>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">TradeMind</h1>
+            <h1 className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+              TradeMind
+              <span className="rounded-full bg-indigo-100 dark:bg-indigo-500/20 px-2.5 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-300">
+                Public Beta
+              </span>
+            </h1>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Disciplined Trading Journal & AI Coach</p>
           </div>
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
@@ -342,7 +341,7 @@ const Settings: React.FC<SettingsProps> = ({
         <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Account Settings</h2>
       </div>
 
-      {/* Support & Compliance Section (New for Monetization/Trust) */}
+      {/* Support & Compliance Section */}
       <div className="rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/10 p-6 shadow-sm">
          <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-200 mb-4 flex items-center gap-2">
            <HelpCircle className="h-5 w-5" /> Support & Compliance
@@ -358,10 +357,10 @@ const Settings: React.FC<SettingsProps> = ({
             <div className="space-y-3">
                <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Legal Resources</h4>
                <div className="flex flex-col gap-2">
-                 <a href="#" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                 <a href="#" title="Coming soon for production launch" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
                     <FileText className="h-4 w-4" /> Terms of Service
                  </a>
-                 <a href="#" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                 <a href="#" title="Coming soon for production launch" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400">
                     <Shield className="h-4 w-4" /> Privacy Policy
                  </a>
                </div>
