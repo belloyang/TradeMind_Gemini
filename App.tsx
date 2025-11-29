@@ -78,13 +78,21 @@ const App: React.FC = () => {
   , [users, activeUserId]);
 
   // --- Helpers ---
-  // Note: We now save to DB immediately after state updates in the handlers
   const updateActiveUser = async (updater: (user: UserProfile) => UserProfile) => {
     if (!activeUserId) return;
     
-    const updatedUsers = users.map(u => u.id === activeUserId ? updater(u) : u);
-    setUsers(updatedUsers);
-    await dataService.saveUsers(updatedUsers);
+    // Find current user state
+    const currentUser = users.find(u => u.id === activeUserId);
+    if (!currentUser) return;
+    
+    // Calculate new state
+    const updatedUser = updater(currentUser);
+    
+    // Optimistic UI Update
+    setUsers(prev => prev.map(u => u.id === activeUserId ? updatedUser : u));
+    
+    // Persist only the changed user
+    await dataService.saveUser(updatedUser);
   };
 
   const toggleTheme = () => {
@@ -155,18 +163,20 @@ const App: React.FC = () => {
       securityAnswer: userData.securityAnswer
     };
     
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    await dataService.saveUsers(updatedUsers);
+    setUsers(prev => [...prev, newUser]);
+    await dataService.saveUser(newUser); // Save only the new user
     
     setActiveUserId(newUser.id);
     setActiveTab('dashboard');
   };
 
   const handleResetPassword = async (userId: string, newPassword: string) => {
-    const updatedUsers = users.map(u => u.id === userId ? { ...u, password: newPassword } : u);
-    setUsers(updatedUsers);
-    await dataService.saveUsers(updatedUsers);
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    const updatedUser = { ...user, password: newPassword };
+    setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+    await dataService.saveUser(updatedUser);
   };
 
   const handleLogout = () => {

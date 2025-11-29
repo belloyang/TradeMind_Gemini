@@ -7,7 +7,9 @@ const STORE_NAME = 'users';
 
 export interface DataService {
   loadUsers(): Promise<UserProfile[]>;
-  saveUsers(users: UserProfile[]): Promise<void>;
+  saveUser(user: UserProfile): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
+  exportToFile(data: any, filename: string): Promise<void>;
 }
 
 class IndexedDBService implements DataService {
@@ -50,8 +52,7 @@ class IndexedDBService implements DataService {
           const users = request.result as UserProfile[];
           if (!users || users.length === 0) {
             // Return default initial data if DB is empty
-            resolve([
-              {
+            const defaultUser: UserProfile = {
                 id: 'demo-user',
                 name: 'Demo Trader',
                 trades: INITIAL_TRADES,
@@ -64,8 +65,9 @@ class IndexedDBService implements DataService {
                   maxTradesPerDay: 3,
                   maxRiskPerTradePercent: 4
                 }
-              }
-            ]);
+            };
+            // Seed the DB
+            this.saveUser(defaultUser).then(() => resolve([defaultUser]));
           } else {
             resolve(users);
           }
@@ -79,35 +81,64 @@ class IndexedDBService implements DataService {
     }
   }
 
-  async saveUsers(users: UserProfile[]): Promise<void> {
+  async saveUser(user: UserProfile): Promise<void> {
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
+      const request = store.put(user); // Upsert: Updates if exists, Adds if new
 
-      // Clear existing and rewrite (simplest strategy for this scale)
-      // For larger apps, we would update individual records
-      const clearRequest = store.clear();
-      
-      clearRequest.onsuccess = () => {
-        let completed = 0;
-        if (users.length === 0) {
-            resolve();
-            return;
-        }
-
-        users.forEach(user => {
-          const addRequest = store.add(user);
-          addRequest.onsuccess = () => {
-            completed++;
-            if (completed === users.length) resolve();
-          };
-          addRequest.onerror = () => reject(addRequest.error);
-        });
-      };
-
-      clearRequest.onerror = () => reject(clearRequest.error);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.delete(userId);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async exportToFile(data: any, filename: string): Promise<void> {
+    const jsonStr = JSON.stringify(data, null, 2);
+    
+    // Try Modern File System Access API
+    if ('showSaveFilePicker' in window) {
+      try {
+        // @ts-ignore - TS might not know about showSaveFilePicker depending on config
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: 'JSON File',
+            accept: { 'application/json': ['.json'] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(jsonStr);
+        await writable.close();
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return; // User cancelled
+        console.warn('File System Access API failed, falling back to download.', err);
+      }
+    }
+
+    // Fallback to Blob Download
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 }
 
