@@ -1,3 +1,4 @@
+
 import { UserProfile } from "../types";
 import { INITIAL_TRADES } from "../constants";
 
@@ -63,8 +64,10 @@ class IndexedDBService implements DataService {
                   defaultTargetPercent: 40,
                   defaultStopLossPercent: 20,
                   maxTradesPerDay: 3,
-                  maxRiskPerTradePercent: 4
-                }
+                  maxRiskPerTradePercent: 4,
+                  checklistConfig: []
+                },
+                subscriptionTier: 'free'
             };
             // Seed the DB
             this.saveUser(defaultUser).then(() => resolve([defaultUser]));

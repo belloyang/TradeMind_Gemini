@@ -82,12 +82,22 @@ export interface ArchivedSession {
   trades: Trade[];
 }
 
+export interface ChecklistConfigItem {
+  id: string;
+  label: string;
+  type: 'system' | 'manual';
+  isEnabled: boolean;
+}
+
 export interface UserSettings {
   defaultTargetPercent: number;
   defaultStopLossPercent: number;
   maxTradesPerDay: number;
   maxRiskPerTradePercent: number;
+  checklistConfig: ChecklistConfigItem[];
 }
+
+export type SubscriptionTier = 'free' | 'pro';
 
 export interface UserProfile {
   id: string;
@@ -98,6 +108,10 @@ export interface UserProfile {
   settings: UserSettings;
   archives: ArchivedSession[];
   
+  // Subscription
+  subscriptionTier: SubscriptionTier;
+  subscriptionExpiry?: string;
+
   // Security
   password?: string;
   securityQuestion?: string;
