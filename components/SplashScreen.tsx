@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Logo from './Logo';
 
 const SplashScreen: React.FC = () => {
   const [opacity, setOpacity] = useState('opacity-0');
@@ -20,10 +21,8 @@ const SplashScreen: React.FC = () => {
         
         {/* Logo Animation */}
         <div className="relative mb-8">
-          <div className="absolute inset-0 animate-pulse rounded-2xl bg-indigo-500/20 blur-2xl"></div>
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-2xl shadow-indigo-500/40">
-            <span className="font-mono text-5xl font-bold text-white">T</span>
-          </div>
+          <div className="absolute inset-0 animate-pulse rounded-full bg-indigo-500/20 blur-3xl"></div>
+          <Logo className="relative h-32 w-32 drop-shadow-2xl" />
         </div>
 
         {/* Title */}

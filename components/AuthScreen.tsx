@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Plus, ShieldCheck, Wallet, ChevronRight, Lock, KeyRound, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../types';
+import Logo from './Logo';
 
 interface AuthScreenProps {
   users: UserProfile[];
@@ -109,9 +110,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ users, onLogin, onCreateUser, o
         <div className="relative z-10 p-8">
           <div className="mb-8 text-center">
             <div className="mb-4 flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-lg shadow-indigo-500/30">
-                <span className="font-mono text-3xl font-bold text-white">T</span>
-              </div>
+              <Logo className="h-20 w-20 drop-shadow-xl" />
             </div>
             <h1 className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
               TradeMind

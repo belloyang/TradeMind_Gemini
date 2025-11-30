@@ -9,6 +9,7 @@ import SettingsPage from './components/Settings';
 import AuthScreen from './components/AuthScreen';
 import SplashScreen from './components/SplashScreen';
 import PricingModal from './components/PricingModal';
+import Logo from './components/Logo';
 import { dataService } from './services/dataService';
 import { paymentService } from './services/paymentService';
 
@@ -193,7 +194,7 @@ const App: React.FC = () => {
       {/* Sidebar (Desktop) */}
       <div className="fixed left-0 top-0 z-40 flex h-16 w-full items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 md:flex-col md:h-full md:w-64 md:items-start md:justify-start md:border-b-0 md:border-r md:py-6 transition-colors duration-300">
         <div className="flex items-center gap-3 md:px-2 md:mb-10">
-          <img src="/logo.svg" alt="TradeMind" className="h-8 w-8" />
+          <Logo className="h-8 w-8" />
           <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">TradeMind</span>
         </div>
         
@@ -226,7 +227,7 @@ const App: React.FC = () => {
           
           <div className="mt-auto pt-4 border-t border-zinc-200 dark:border-zinc-800 w-full">
              {/* Feedback Link for Soft Launch */}
-             <a href="mailto:by.business@outlook.com?subject=TradeMind Beta Feedback" target="_blank" rel="noopener noreferrer" className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
+             <a href="mailto:by.business@outlook.com?subject=TradeMind Beta Feedback" target="_blank" className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
                <MessageSquare size={18} /> Give Feedback
              </a>
              <button onClick={toggleTheme} className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}{isDarkMode ? 'Light Mode' : 'Dark Mode'}</button>
@@ -249,7 +250,7 @@ const App: React.FC = () => {
               <NavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon={<BarChart2 size={20} />} label="Analytics" />
               <NavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon={<Settings size={20} />} label="Settings" />
               
-              <a href="mailto:by.business@outlook.com?subject=TradeMind Beta Feedback" target="_blank" rel="noopener noreferrer" className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 py-3 text-sm font-bold text-emerald-600">
+              <a href="mailto:by.business@outlook.com?subject=TradeMind Beta Feedback" target="_blank" className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 py-3 text-sm font-bold text-emerald-600">
                   <MessageSquare size={16} /> Give Feedback
               </a>
 
