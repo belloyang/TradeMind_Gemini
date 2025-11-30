@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar, 
@@ -350,7 +351,12 @@ const Settings: React.FC<SettingsProps> = ({
             <div className="space-y-3">
                <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Need Help?</h4>
                <p className="text-xs text-zinc-500 dark:text-zinc-400">Our support team is available M-F 9am-5pm EST.</p>
-               <a href="mailto:support@trademind.app" className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
+               <a 
+                 href="mailto:by.business@outlook.com?subject=TradeMind Support Request" 
+                 target="_blank" 
+                 rel="noopener noreferrer" 
+                 className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+               >
                  <Mail className="h-4 w-4" /> Contact Support
                </a>
             </div>
