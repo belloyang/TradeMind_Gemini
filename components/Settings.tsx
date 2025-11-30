@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   RefreshCw, History, AlertTriangle, Wallet, ArrowRight, Calendar,
@@ -348,7 +349,12 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Need Help?</h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">Our support team is available M-F 9am-5pm EST.</p>
-            <a href="mailto:support@trademind.app" className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
+            <a
+              href="mailto:by.business@outlook.com?subject=TradeMind Support Request"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+            >
               <Mail className="h-4 w-4" /> Contact Support
             </a>
           </div>
@@ -391,7 +397,7 @@ const Settings: React.FC<SettingsProps> = ({
               <input type="number" step="0.5" value={userSettings.maxRiskPerTradePercent} onChange={(e) => onUpdateSettings({ ...userSettings, maxRiskPerTradePercent: parseFloat(e.target.value) })} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-white focus:border-indigo-500 focus:outline-none" />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
             </div>
-            <p className="text-[10px] text-zinc-500 mt-1">Warns if risk {'>'} % of Balance</p>
+            <p className="text-[10px] text-zinc-500 mt-1">Warns if risk &gt; % of Balance</p>
           </div>
           <div>
             <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-2 flex items-center gap-2"><Layers className="h-3 w-3" /> Max Trades Per Day</label>
