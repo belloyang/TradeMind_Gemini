@@ -1,81 +1,90 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TradeMind | Disciplined Option Journal</title>
-    <meta name="description" content="Master the markets by mastering yourself. TradeMind is the AI-powered trading journal designed to keep option traders disciplined and profitable." />
-    <meta name="theme-color" content="#4f46e5" />
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://trade-mind-journal.web.app/" />
-    <meta property="og:title" content="TradeMind | Disciplined Option Journal" />
-    <meta property="og:description" content="Master the markets by mastering yourself. TradeMind is the AI-powered trading journal designed to keep option traders disciplined and profitable." />
-    <meta property="og:image" content="https://placehold.co/1200x630/4f46e5/ffffff.png?text=TradeMind+Beta" />
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://trade-mind-journal.web.app/" />
-    <meta property="twitter:title" content="TradeMind | Disciplined Option Journal" />
-    <meta property="twitter:description" content="Master the markets by mastering yourself. TradeMind is the AI-powered trading journal designed to keep option traders disciplined and profitable." />
-    <meta property="twitter:image" content="https://placehold.co/1200x630/4f46e5/ffffff.png?text=TradeMind+Beta" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradeMind | Disciplined Option Journal</title>
+  <meta name="description"
+    content="Master the markets by mastering yourself. TradeMind is the AI-powered trading journal designed to keep option traders disciplined and profitable." />
+  <meta name="theme-color" content="#4f46e5" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <link rel="manifest" href="/manifest.json" />
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://trade-mind-journal.web.app/" />
+  <meta property="og:title" content="TradeMind | Disciplined Option Journal" />
+  <meta property="og:description"
+    content="Master the markets by mastering yourself. TradeMind is the AI-powered trading journal designed to keep option traders disciplined and profitable." />
+  <meta property="og:image" content="https://placehold.co/1200x630/4f46e5/ffffff.png?text=TradeMind+Beta" />
 
-    <!-- Google tag (gtag.js) -->
-    <!-- REPLACE 'G-W49DQLERWK' WITH YOUR ACTUAL MEASUREMENT ID -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-W49DQLERWK"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://trade-mind-journal.web.app/" />
+  <meta property="twitter:title" content="TradeMind | Disciplined Option Journal" />
+  <meta property="twitter:description"
+    content="Master the markets by mastering yourself. TradeMind is the AI-powered trading journal designed to keep option traders disciplined and profitable." />
+  <meta property="twitter:image" content="https://placehold.co/1200x630/4f46e5/ffffff.png?text=TradeMind+Beta" />
 
-      gtag('config', 'G-W49DQLERWK');
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              mono: ['JetBrains Mono', 'monospace'],
-            }
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PWZRFRG7RB"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-PWZRFRG7RB');
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           }
         }
       }
-    </script>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
-      body {
-        font-family: 'Inter', sans-serif;
-        /* Default base styles handled by tailwind classes in App.tsx mainly, 
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      /* Default base styles handled by tailwind classes in App.tsx mainly, 
            but setting here avoids FOUC */
-        @apply transition-colors duration-300;
-      }
-      .font-mono {
-        font-family: 'JetBrains Mono', monospace;
-      }
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        @apply bg-zinc-100 dark:bg-zinc-900;
-      }
-      ::-webkit-scrollbar-thumb {
-        @apply bg-zinc-300 dark:bg-zinc-700;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        @apply bg-zinc-400 dark:bg-zinc-600;
-      }
-    </style>
+      @apply transition-colors duration-300;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      @apply bg-zinc-100 dark:bg-zinc-900;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      @apply bg-zinc-300 dark:bg-zinc-700;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      @apply bg-zinc-400 dark:bg-zinc-600;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -90,8 +99,10 @@
 }
 </script>
 </head>
-  <body class="bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-200">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body class="bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-200">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>
