@@ -116,4 +116,8 @@ export interface UserProfile {
   password?: string;
   securityQuestion?: string;
   securityAnswer?: string;
+
+  // Metadata
+  createdAt?: string;
+  updatedAt?: string;
 }

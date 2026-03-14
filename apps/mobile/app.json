@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "TradeMind",
+    "slug": "trademind",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "trademind",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      ["@react-native-firebase/app"],
+      ["@react-native-firebase/auth"],
+      ["@react-native-firebase/firestore", { "persistence": true }]
+    ],
+    "ios": {"supportsTablet": true},
+    "android": {"adaptiveIcon": {"foregroundImage": "./assets/adaptive-icon.png","backgroundColor": "#ffffff"}},
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_ME"
+      }
+    }
+  }
+}

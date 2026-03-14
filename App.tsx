@@ -12,6 +12,9 @@ import PricingModal from './components/PricingModal';
 import Logo from './components/Logo';
 import { dataService } from './services/dataService';
 import { paymentService } from './services/paymentService';
+import { authService } from './services/authService';
+import { auth } from './services/firebaseClient';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const THEME_KEY = 'trademind_theme';
 
@@ -33,29 +36,43 @@ const App: React.FC = () => {
   const isDarkMode = theme === 'dark';
 
   // --- User Management State ---
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
 
   // --- UI State ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'analytics' | 'settings'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
 
-  // --- Initial Data Load ---
+  // --- Auth Listener & Data Load ---
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+    });
+    return () => unsub();
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
+      if (!firebaseUser) {
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
       try {
         const loadedUsers = await dataService.loadUsers();
-        setUsers(loadedUsers);
+        setProfile(loadedUsers[0] || null);
       } catch (e) {
-        console.error("Failed to load users", e);
+        console.error("Failed to load profile", e);
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
-  }, []);
+  }, [firebaseUser]);
 
   // --- Theme Effect ---
   useEffect(() => {
@@ -78,27 +95,22 @@ const App: React.FC = () => {
 
   // --- Check for Payment Success (Redirect) ---
   useEffect(() => {
-    if (paymentService.checkPaymentSuccess() && activeUserId) {
+    if (paymentService.checkPaymentSuccess() && activeUser) {
       updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' }));
-      // Clear URL params
       window.history.replaceState({}, document.title, window.location.pathname);
       alert("Payment successful! Pro features unlocked.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUserId]);
+  }, [activeUser]);
 
   // --- Derived Active User ---
-  const activeUser = useMemo(() => 
-    users.find(u => u.id === activeUserId) || null
-  , [users, activeUserId]);
+  const activeUser = profile;
 
   // --- Helpers ---
   const updateActiveUser = async (updater: (user: UserProfile) => UserProfile) => {
-    if (!activeUserId) return;
-    const currentUser = users.find(u => u.id === activeUserId);
-    if (!currentUser) return;
-    const updatedUser = updater(currentUser);
-    setUsers(prev => prev.map(u => u.id === activeUserId ? updatedUser : u));
+    if (!activeUser) return;
+    const updatedUser = updater(activeUser);
+    setProfile(updatedUser);
     await dataService.saveUser(updatedUser);
   };
 
@@ -125,26 +137,33 @@ const App: React.FC = () => {
 
   // --- Handlers ---
   
-  const handleLogin = (userId: string) => { setActiveUserId(userId); setActiveTab('dashboard'); };
+  const handleLogin = async (email: string, password: string) => {
+    setAuthLoading(true);
+    await authService.login(email, password);
+    setAuthLoading(false);
+    setActiveTab('dashboard');
+  };
 
-  const handleCreateUser = async (userData: { name: string; initialCapital: number; password?: string; securityQuestion?: string; securityAnswer?: string }) => {
+  const handleCreateUser = async (name: string, email: string, password: string, initialCapital: number) => {
+    setAuthLoading(true);
+    const user = await authService.signup(email, password, name);
     const newUser: UserProfile = {
-      id: Date.now().toString(), name: userData.name, initialCapital: userData.initialCapital, startDate: new Date().toISOString(), trades: [], archives: [],
+      id: user.uid,
+      name,
+      initialCapital,
+      startDate: new Date().toISOString(),
+      trades: [],
+      archives: [],
       settings: { defaultTargetPercent: 30, defaultStopLossPercent: 15, maxTradesPerDay: 5, maxRiskPerTradePercent: 4, checklistConfig: [] },
-      password: userData.password, securityQuestion: userData.securityQuestion, securityAnswer: userData.securityAnswer,
-      // SOFT LAUNCH: Give everyone PRO access by default during beta
       subscriptionTier: 'pro'
     };
-    setUsers(prev => [...prev, newUser]); await dataService.saveUser(newUser); setActiveUserId(newUser.id); setActiveTab('dashboard');
+    await dataService.saveUser(newUser);
+    setProfile(newUser);
+    setAuthLoading(false);
+    setActiveTab('dashboard');
   };
 
-  const handleResetPassword = async (userId: string, newPassword: string) => {
-    const user = users.find(u => u.id === userId); if (!user) return;
-    const updatedUser = { ...user, password: newPassword };
-    setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u)); await dataService.saveUser(updatedUser);
-  };
-
-  const handleLogout = () => { setActiveUserId(null); setIsMobileMenuOpen(false); };
+  const handleLogout = async () => { await authService.logout(); setProfile(null); setIsMobileMenuOpen(false); };
   const handleAddTrade = (newTrade: Trade) => { updateActiveUser(u => ({ ...u, trades: [newTrade, ...u.trades] })); };
   const handleUpdateTrade = (updatedTrade: Trade) => { updateActiveUser(u => ({ ...u, trades: u.trades.map(t => t.id === updatedTrade.id ? updatedTrade : t) })); };
   const handleDeleteTrade = (tradeId: string) => { updateActiveUser(u => ({ ...u, trades: u.trades.filter(t => t.id !== tradeId) })); };
@@ -158,10 +177,10 @@ const App: React.FC = () => {
   };
 
   const handleImportProfile = async (importedProfile: UserProfile) => {
-    if (!activeUserId) return;
+    if (!activeUser) return;
     if (!importedProfile.trades || !importedProfile.settings || !importedProfile.name) { alert("Invalid backup file."); return; }
     if (window.confirm(`Overwrite current profile with data from "${importedProfile.name}"?`)) {
-       await updateActiveUser(u => ({ ...importedProfile, id: u.id, password: u.password, securityQuestion: u.securityQuestion, securityAnswer: u.securityAnswer }));
+       await updateActiveUser(u => ({ ...importedProfile, id: u.id, subscriptionTier: u.subscriptionTier }));
        alert("Profile restored successfully."); setActiveTab('dashboard');
     }
   };
@@ -183,8 +202,8 @@ const App: React.FC = () => {
   // --- Render ---
 
   if (showSplash) return <SplashScreen />;
-  if (isLoading) return <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white"><div className="flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /><p>Loading Journal Database...</p></div></div>;
-  if (!activeUser) return <AuthScreen users={users} onLogin={handleLogin} onCreateUser={handleCreateUser} onResetPassword={handleResetPassword} />;
+  if (!firebaseUser) return <AuthScreen onLogin={handleLogin} onSignup={handleCreateUser} loading={authLoading} />;
+  if (isLoading || !activeUser) return <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white"><div className="flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /><p>Loading Journal Database...</p></div></div>;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-200 font-sans selection:bg-indigo-500/30 transition-colors duration-300">

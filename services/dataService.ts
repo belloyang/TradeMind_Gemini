@@ -1,139 +1,137 @@
-
-import { UserProfile } from "../types";
+import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "./firebaseClient";
+import { UserProfile, Trade, ArchivedSession, UserSettings } from "../types";
 import { INITIAL_TRADES } from "../constants";
 
-const DB_NAME = 'trademind_db';
-const DB_VERSION = 1;
-const STORE_NAME = 'users';
+const USERS = "users";
+const SETTINGS = "settings";
+const TRADES = "trades";
+const ARCHIVES = "archives";
 
-export interface DataService {
-  loadUsers(): Promise<UserProfile[]>;
-  saveUser(user: UserProfile): Promise<void>;
-  deleteUser(userId: string): Promise<void>;
-  exportToFile(data: any, filename: string): Promise<void>;
+const defaultSettings: UserSettings = {
+  defaultTargetPercent: 40,
+  defaultStopLossPercent: 20,
+  maxTradesPerDay: 3,
+  maxRiskPerTradePercent: 4,
+  checklistConfig: []
+};
+
+async function ensureAuth() {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  return user;
 }
 
-class IndexedDBService implements DataService {
-  private dbPromise: Promise<IDBDatabase> | null = null;
+async function loadProfile(uid: string): Promise<UserProfile | null> {
+  const userRef = doc(db, USERS, uid);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) return null;
+  const base = snap.data() as Omit<UserProfile, "trades" | "archives">;
+  const trades = await loadTrades(uid);
+  const archives = await loadArchives(uid);
+  return { ...base, trades, archives };
+}
 
-  private async openDB(): Promise<IDBDatabase> {
-    if (this.dbPromise) return this.dbPromise;
+async function loadTrades(uid: string): Promise<Trade[]> {
+  const tradesRef = collection(doc(db, USERS, uid), TRADES);
+  const snapshot = await getDocs(tradesRef);
+  return snapshot.docs.map(d => d.data() as Trade).sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
+}
 
-    this.dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+async function loadArchives(uid: string): Promise<ArchivedSession[]> {
+  const archivesRef = collection(doc(db, USERS, uid), ARCHIVES);
+  const snapshot = await getDocs(archivesRef);
+  return snapshot.docs.map(d => d.data() as ArchivedSession).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+}
 
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        }
-      };
+async function upsertTrades(uid: string, trades: Trade[]) {
+  const tradesRef = collection(doc(db, USERS, uid), TRADES);
+  const existing = await getDocs(tradesRef);
+  const batch = writeBatch(db);
+  const incomingIds = new Set(trades.map(t => t.id));
 
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBOpenDBRequest).result);
-      };
+  trades.forEach(t => {
+    const ref = doc(tradesRef, t.id);
+    batch.set(ref, { ...t, updatedAt: serverTimestamp() });
+  });
 
-      request.onerror = (event) => {
-        reject((event.target as IDBOpenDBRequest).error);
-      };
-    });
-
-    return this.dbPromise;
-  }
-
-  async loadUsers(): Promise<UserProfile[]> {
-    try {
-      const db = await this.openDB();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.getAll();
-
-        request.onsuccess = () => {
-          const users = request.result as UserProfile[];
-          if (!users || users.length === 0) {
-            // Return default initial data if DB is empty
-            const defaultUser: UserProfile = {
-                id: 'demo-user',
-                name: 'Demo Trader',
-                trades: INITIAL_TRADES,
-                initialCapital: 10000,
-                startDate: new Date('2024-05-01').toISOString(),
-                archives: [],
-                settings: {
-                  defaultTargetPercent: 40,
-                  defaultStopLossPercent: 20,
-                  maxTradesPerDay: 3,
-                  maxRiskPerTradePercent: 4,
-                  checklistConfig: []
-                },
-                // SOFT LAUNCH: Default to 'pro' so users can test features
-                subscriptionTier: 'pro'
-            };
-            // Seed the DB
-            this.saveUser(defaultUser).then(() => resolve([defaultUser]));
-          } else {
-            resolve(users);
-          }
-        };
-
-        request.onerror = () => reject(request.error);
-      });
-    } catch (error) {
-      console.error("IndexedDB Load Error:", error);
-      return [];
+  existing.docs.forEach(d => {
+    if (!incomingIds.has(d.id)) {
+      batch.delete(d.ref);
     }
-  }
+  });
 
-  async saveUser(user: UserProfile): Promise<void> {
-    const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(user); // Upsert: Updates if exists, Adds if new
+  await batch.commit();
+}
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+async function upsertArchives(uid: string, archives: ArchivedSession[]) {
+  const archivesRef = collection(doc(db, USERS, uid), ARCHIVES);
+  const existing = await getDocs(archivesRef);
+  const batch = writeBatch(db);
+  const incomingIds = new Set(archives.map(a => a.id));
+
+  archives.forEach(a => {
+    const ref = doc(archivesRef, a.id);
+    batch.set(ref, { ...a, updatedAt: serverTimestamp() });
+  });
+
+  existing.docs.forEach(d => {
+    if (!incomingIds.has(d.id)) {
+      batch.delete(d.ref);
+    }
+  });
+
+  await batch.commit();
+}
+
+export const dataService = {
+  async loadUsers(): Promise<UserProfile[]> {
+    const user = await ensureAuth();
+    const profile = await loadProfile(user.uid);
+    if (profile) return [profile];
+
+    const defaultUser: UserProfile = {
+      id: user.uid,
+      name: user.displayName || "Demo Trader",
+      trades: INITIAL_TRADES,
+      initialCapital: 10000,
+      startDate: new Date().toISOString(),
+      archives: [],
+      settings: defaultSettings,
+      subscriptionTier: "pro"
+    };
+
+    await this.saveUser(defaultUser);
+    return [defaultUser];
+  },
+
+  async saveUser(userProfile: UserProfile): Promise<void> {
+    const user = await ensureAuth();
+    if (user.uid !== userProfile.id) {
+      throw new Error("Cannot save another user's profile");
+    }
+
+    const { trades, archives, ...rest } = userProfile;
+    const userRef = doc(db, USERS, user.uid);
+    await setDoc(userRef, {
+      ...rest,
+      userId: user.uid,
+      updatedAt: serverTimestamp(),
+      createdAt: rest.startDate || serverTimestamp()
     });
-  }
+
+    await upsertTrades(user.uid, trades || []);
+    await upsertArchives(user.uid, archives || []);
+  },
 
   async deleteUser(userId: string): Promise<void> {
-    const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(userId);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
+    const user = await ensureAuth();
+    if (user.uid !== userId) throw new Error("Cannot delete another user");
+    await deleteDoc(doc(db, USERS, userId));
+  },
 
   async exportToFile(data: any, filename: string): Promise<void> {
     const jsonStr = JSON.stringify(data, null, 2);
-    
-    // Try Modern File System Access API
-    if ('showSaveFilePicker' in window) {
-      try {
-        // @ts-ignore - TS might not know about showSaveFilePicker depending on config
-        const handle = await window.showSaveFilePicker({
-          suggestedName: filename,
-          types: [{
-            description: 'JSON File',
-            accept: { 'application/json': ['.json'] },
-          }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(jsonStr);
-        await writable.close();
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return; // User cancelled
-        console.warn('File System Access API failed, falling back to download.', err);
-      }
-    }
-
-    // Fallback to Blob Download
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -144,6 +142,4 @@ class IndexedDBService implements DataService {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
-}
-
-export const dataService = new IndexedDBService();
+};

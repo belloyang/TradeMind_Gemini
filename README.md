@@ -16,5 +16,12 @@ View your app in AI Studio: https://ai.studio/apps/drive/1hjSlRmrtZ9h6jdxyTwiYbJ
 1. Install dependencies:
    `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+3. Create `.env.local` (or use `.env.example`) with your Firebase project config:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+4. Run the app:
    `npm run dev`
