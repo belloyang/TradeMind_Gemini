@@ -7,7 +7,7 @@ import Constants from 'expo-constants';
 const firebaseConfig = Constants.expoConfig?.extra?.firebase;
 
 if (!firebaseConfig?.apiKey) {
-  console.warn('Firebase config missing. Set EXPO_PUBLIC_FIREBASE_* env vars.');
+  console.warn('Firebase config missing. Set EXPO_PUBLIC_FIREBASE_* or VITE_FIREBASE_* env vars.');
 }
 
 const app = initializeApp(firebaseConfig);
