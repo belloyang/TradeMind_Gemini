@@ -54,6 +54,9 @@ const App: React.FC = () => {
     return () => unsub();
   }, []);
 
+  // --- Derived Active User ---
+  const activeUser = profile;
+
   useEffect(() => {
     const loadData = async () => {
       if (!firebaseUser) {
@@ -102,9 +105,6 @@ const App: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeUser]);
-
-  // --- Derived Active User ---
-  const activeUser = profile;
 
   // --- Helpers ---
   const updateActiveUser = async (updater: (user: UserProfile) => UserProfile) => {
