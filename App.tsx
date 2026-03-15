@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { LayoutDashboard, BookOpen, Settings, BarChart2, Menu, X, LogOut, Sun, Moon, Loader2, Sparkles, MessageSquare } from 'lucide-react';
-import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
+
 import Dashboard from './components/Dashboard';
 import TradeJournal from './components/TradeJournal';
 import Analytics from './components/Analytics';
@@ -10,185 +11,199 @@ import AuthScreen from './components/AuthScreen';
 import SplashScreen from './components/SplashScreen';
 import PricingModal from './components/PricingModal';
 import Logo from './components/Logo';
+
 import { dataService } from './services/dataService';
 import { paymentService } from './services/paymentService';
+import { authService } from './services/authService';
+import { auth } from './services/firebaseClient';
+
+import { Trade, Metrics, ArchivedSession, UserSettings, UserProfile } from './types';
 
 const THEME_KEY = 'trademind_theme';
 
 const App: React.FC = () => {
-  // --- Splash Screen State ---
+  // Splash
   const [showSplash, setShowSplash] = useState(true);
 
-  // --- Theme State ---
+  // Theme
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
-      const savedTheme = localStorage.getItem(THEME_KEY);
-      if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'light' || saved === 'dark') return saved;
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     } catch {
       return 'dark';
     }
   });
-
   const isDarkMode = theme === 'dark';
 
-  // --- User Management State ---
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  // Auth & data
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
 
-  // --- UI State ---
+  // UI state
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'analytics' | 'settings'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
 
-  // --- Initial Data Load ---
+  // Auth listener
   useEffect(() => {
-    const loadData = async () => {
+    const unsub = onAuthStateChanged(auth, (user) => setFirebaseUser(user));
+    return () => unsub();
+  }, []);
+
+  // Load profile when authenticated
+  useEffect(() => {
+    const load = async () => {
+      if (!firebaseUser) {
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
       try {
-        const loadedUsers = await dataService.loadUsers();
-        setUsers(loadedUsers);
+        const loaded = await dataService.loadUsers();
+        setProfile(loaded[0] || null);
       } catch (e) {
-        console.error("Failed to load users", e);
+        console.error('Failed to load profile', e);
       } finally {
         setIsLoading(false);
       }
     };
-    loadData();
-  }, []);
+    load();
+  }, [firebaseUser]);
 
-  // --- Theme Effect ---
+  // Theme effect
   useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  // --- Splash Effect ---
+  // Splash timeout
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 3000); // Show splash for 3 seconds
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setShowSplash(false), 1200);
+    return () => clearTimeout(t);
   }, []);
 
-  // --- Check for Payment Success (Redirect) ---
+  const activeUser = profile;
+
+  // Payment check
   useEffect(() => {
-    if (paymentService.checkPaymentSuccess() && activeUserId) {
+    if (paymentService.checkPaymentSuccess() && activeUser) {
       updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' }));
-      // Clear URL params
       window.history.replaceState({}, document.title, window.location.pathname);
-      alert("Payment successful! Pro features unlocked.");
+      alert('Payment successful! Pro features unlocked.');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUserId]);
+  }, [activeUser]);
 
-  // --- Derived Active User ---
-  const activeUser = useMemo(() => 
-    users.find(u => u.id === activeUserId) || null
-  , [users, activeUserId]);
-
-  // --- Helpers ---
   const updateActiveUser = async (updater: (user: UserProfile) => UserProfile) => {
-    if (!activeUserId) return;
-    const currentUser = users.find(u => u.id === activeUserId);
-    if (!currentUser) return;
-    const updatedUser = updater(currentUser);
-    setUsers(prev => prev.map(u => u.id === activeUserId ? updatedUser : u));
-    await dataService.saveUser(updatedUser);
+    if (!activeUser) return;
+    const updated = updater(activeUser);
+    setProfile(updated);
+    await dataService.saveUser(updated);
   };
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
+  const toggleTheme = () => setTheme(p => p === 'dark' ? 'light' : 'dark');
 
-  // --- Calculate Metrics ---
   const metrics: Metrics = useMemo(() => {
     if (!activeUser) return { totalTrades: 0, winRate: 0, totalPnL: 0, averagePnL: 0, disciplineScore: 0, maxDrawdown: 0 };
     const trades = activeUser.trades;
-    const closedTrades = trades.filter(t => t.pnl !== undefined);
-    const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-    const winningTrades = closedTrades.filter(t => (t.pnl || 0) > 0).length;
-    const winRate = closedTrades.length > 0 ? (winningTrades / closedTrades.length) * 100 : 0;
-    const totalDiscipline = trades.reduce((sum, t) => sum + t.disciplineScore, 0);
-    
-    let peak = 0; let currentEquity = 0; let maxDD = 0;
-    const sortedTrades = [...trades].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
-    sortedTrades.forEach(t => { if (t.pnl) currentEquity += t.pnl; if (currentEquity > peak) peak = currentEquity; const dd = peak - currentEquity; if (dd > maxDD) maxDD = dd; });
-
-    return { totalTrades: trades.length, winRate, totalPnL, averagePnL: closedTrades.length > 0 ? totalPnL / closedTrades.length : 0, disciplineScore: trades.length > 0 ? totalDiscipline / trades.length : 0, maxDrawdown: maxDD };
+    const closed = trades.filter(t => t.pnl !== undefined);
+    const totalPnL = closed.reduce((s, t) => s + (t.pnl || 0), 0);
+    const wins = closed.filter(t => (t.pnl || 0) > 0).length;
+    const winRate = closed.length ? (wins / closed.length) * 100 : 0;
+    const totalDiscipline = trades.reduce((s, t) => s + t.disciplineScore, 0);
+    let peak = 0; let eq = 0; let maxDD = 0;
+    const sorted = [...trades].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
+    sorted.forEach(t => { if (t.pnl) eq += t.pnl; if (eq > peak) peak = eq; const dd = peak - eq; if (dd > maxDD) maxDD = dd; });
+    return { totalTrades: trades.length, winRate, totalPnL, averagePnL: closed.length ? totalPnL / closed.length : 0, disciplineScore: trades.length ? totalDiscipline / trades.length : 0, maxDrawdown: maxDD };
   }, [activeUser]);
 
-  // --- Handlers ---
-  
-  const handleLogin = (userId: string) => { setActiveUserId(userId); setActiveTab('dashboard'); };
+  // Handlers
+  const handleLogin = async (email: string, password: string) => {
+    setAuthLoading(true);
+    await authService.login(email, password);
+    setAuthLoading(false);
+    setActiveTab('dashboard');
+  };
 
-  const handleCreateUser = async (userData: { name: string; initialCapital: number; password?: string; securityQuestion?: string; securityAnswer?: string }) => {
-    const newUser: UserProfile = {
-      id: Date.now().toString(), name: userData.name, initialCapital: userData.initialCapital, startDate: new Date().toISOString(), trades: [], archives: [],
+  const handleSignup = async (name: string, email: string, password: string, initialCapital: number) => {
+    setAuthLoading(true);
+    const user = await authService.signup(email, password, name);
+    const newProfile: UserProfile = {
+      id: user.uid,
+      name,
+      initialCapital,
+      startDate: new Date().toISOString(),
+      trades: [],
+      archives: [],
       settings: { defaultTargetPercent: 30, defaultStopLossPercent: 15, maxTradesPerDay: 5, maxRiskPerTradePercent: 4, checklistConfig: [] },
-      password: userData.password, securityQuestion: userData.securityQuestion, securityAnswer: userData.securityAnswer,
-      // SOFT LAUNCH: Give everyone PRO access by default during beta
       subscriptionTier: 'pro'
     };
-    setUsers(prev => [...prev, newUser]); await dataService.saveUser(newUser); setActiveUserId(newUser.id); setActiveTab('dashboard');
+    await dataService.saveUser(newProfile);
+    setProfile(newProfile);
+    setAuthLoading(false);
+    setActiveTab('dashboard');
   };
 
-  const handleResetPassword = async (userId: string, newPassword: string) => {
-    const user = users.find(u => u.id === userId); if (!user) return;
-    const updatedUser = { ...user, password: newPassword };
-    setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u)); await dataService.saveUser(updatedUser);
+  const handleLogout = async () => {
+    await authService.logout();
+    setProfile(null);
+    setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = () => { setActiveUserId(null); setIsMobileMenuOpen(false); };
-  const handleAddTrade = (newTrade: Trade) => { updateActiveUser(u => ({ ...u, trades: [newTrade, ...u.trades] })); };
-  const handleUpdateTrade = (updatedTrade: Trade) => { updateActiveUser(u => ({ ...u, trades: u.trades.map(t => t.id === updatedTrade.id ? updatedTrade : t) })); };
-  const handleDeleteTrade = (tradeId: string) => { updateActiveUser(u => ({ ...u, trades: u.trades.filter(t => t.id !== tradeId) })); };
-  const handleUpdateSettings = (newSettings: UserSettings) => { updateActiveUser(u => ({ ...u, settings: newSettings })); };
+  const handleAddTrade = (newTrade: Trade) => updateActiveUser(u => ({ ...u, trades: [newTrade, ...u.trades] }));
+  const handleUpdateTrade = (updatedTrade: Trade) => updateActiveUser(u => ({ ...u, trades: u.trades.map(t => t.id === updatedTrade.id ? updatedTrade : t) }));
+  const handleDeleteTrade = (tradeId: string) => updateActiveUser(u => ({ ...u, trades: u.trades.filter(t => t.id !== tradeId) }));
+  const handleUpdateSettings = (newSettings: UserSettings) => updateActiveUser(u => ({ ...u, settings: newSettings }));
 
   const handleResetAccount = (newCapital: number) => {
     if (!activeUser) return;
-    const newArchive: ArchivedSession = { id: Date.now().toString(), startDate: activeUser.startDate, endDate: new Date().toISOString(), initialCapital: activeUser.initialCapital, finalBalance: activeUser.initialCapital + metrics.totalPnL, totalPnL: metrics.totalPnL, tradeCount: activeUser.trades.length, trades: [...activeUser.trades] };
-    updateActiveUser(u => ({ ...u, archives: [newArchive, ...u.archives], trades: [], initialCapital: newCapital, startDate: new Date().toISOString() }));
+    const archive: ArchivedSession = {
+      id: Date.now().toString(),
+      startDate: activeUser.startDate,
+      endDate: new Date().toISOString(),
+      initialCapital: activeUser.initialCapital,
+      finalBalance: activeUser.initialCapital + metrics.totalPnL,
+      totalPnL: metrics.totalPnL,
+      tradeCount: activeUser.trades.length,
+      trades: [...activeUser.trades]
+    };
+    updateActiveUser(u => ({ ...u, archives: [archive, ...u.archives], trades: [], initialCapital: newCapital, startDate: new Date().toISOString() }));
     setActiveTab('dashboard');
   };
 
   const handleImportProfile = async (importedProfile: UserProfile) => {
-    if (!activeUserId) return;
-    if (!importedProfile.trades || !importedProfile.settings || !importedProfile.name) { alert("Invalid backup file."); return; }
+    if (!activeUser) return;
+    if (!importedProfile.trades || !importedProfile.settings || !importedProfile.name) { alert('Invalid backup file.'); return; }
     if (window.confirm(`Overwrite current profile with data from "${importedProfile.name}"?`)) {
-       await updateActiveUser(u => ({ ...importedProfile, id: u.id, password: u.password, securityQuestion: u.securityQuestion, securityAnswer: u.securityAnswer }));
-       alert("Profile restored successfully."); setActiveTab('dashboard');
+      await updateActiveUser(u => ({ ...importedProfile, id: u.id, subscriptionTier: u.subscriptionTier }));
+      alert('Profile restored successfully.');
+      setActiveTab('dashboard');
     }
   };
 
   const handleTabChange = (tab: typeof activeTab) => { setActiveTab(tab); setIsMobileMenuOpen(false); };
 
   const handleUpgrade = async () => {
-    // SOFT LAUNCH: Just toggle for now if testing manually
-    // In production, this would call paymentService.initiateCheckout(activeUser)
-    
-    // For Beta feedback loop
-    alert("During the Beta period, all Pro features are free! Enjoy.");
+    alert('During the Beta period, all Pro features are free! Enjoy.');
     if (activeUser?.subscriptionTier === 'free') {
        await updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' }));
     }
     setShowPricing(false);
   };
 
-  // --- Render ---
-
+  // Render gate
   if (showSplash) return <SplashScreen />;
-  if (isLoading) return <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white"><div className="flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /><p>Loading Journal Database...</p></div></div>;
-  if (!activeUser) return <AuthScreen users={users} onLogin={handleLogin} onCreateUser={handleCreateUser} onResetPassword={handleResetPassword} />;
+  if (!firebaseUser) return <AuthScreen onLogin={handleLogin} onSignup={handleSignup} loading={authLoading} />;
+  if (isLoading || !activeUser) return <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white"><div className="flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /><p>Loading Journal Database...</p></div></div>;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-200 font-sans selection:bg-indigo-500/30 transition-colors duration-300">
-      
       {showPricing && <PricingModal onClose={() => setShowPricing(false)} onUpgrade={handleUpgrade} />}
 
       {/* Sidebar (Desktop) */}
@@ -197,7 +212,7 @@ const App: React.FC = () => {
           <Logo className="h-8 w-8" />
           <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">TradeMind</span>
         </div>
-        
+
         {/* Mobile Toggles */}
         <div className="flex items-center gap-2 md:hidden">
           <button onClick={toggleTheme} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">{isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
@@ -211,7 +226,6 @@ const App: React.FC = () => {
           <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart2 size={20} />} label="Analytics" />
           <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={20} />} label="Settings" />
 
-          {/* Upgrade Button Hidden During Beta or if already Pro */}
           {activeUser.subscriptionTier === 'free' && (
              <div className="mt-4 px-2">
                 <button 
@@ -226,11 +240,10 @@ const App: React.FC = () => {
           )}
           
           <div className="mt-auto pt-4 border-t border-zinc-200 dark:border-zinc-800 w-full">
-             {/* Feedback Link for Soft Launch */}
              <a href="mailto:by.business@outlook.com?subject=TradeMind Beta Feedback" target="_blank" className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
                <MessageSquare size={18} /> Give Feedback
              </a>
-             <button onClick={toggleTheme} className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}{isDarkMode ? 'Light Mode' : 'Dark Mode'}</button>
+             <button onClick={toggleTheme} className="mb-2 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}{isDarkMode ? 'Light Mode' : 'Dark Mode'}</button>
              <div className="px-4 py-3 mb-2 flex items-center gap-3 rounded-lg bg-zinc-100 dark:bg-zinc-900/50">
                <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">{activeUser.name.charAt(0).toUpperCase()}</div>
                <div className="overflow-hidden"><p className="text-sm font-medium truncate">{activeUser.name}</p><p className="text-[10px] text-zinc-500 truncate capitalize">Beta User</p></div>
