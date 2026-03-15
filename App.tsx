@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
   // UI state
@@ -60,14 +61,17 @@ const App: React.FC = () => {
       if (!firebaseUser) {
         setProfile(null);
         setIsLoading(false);
+        setLoadError(null);
         return;
       }
       setIsLoading(true);
+      setLoadError(null);
       try {
         const loaded = await dataService.loadUsers();
         setProfile(loaded[0] || null);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to load profile', e);
+        setLoadError(e?.message ?? 'Failed to connect to the database.');
       } finally {
         setIsLoading(false);
       }
@@ -200,7 +204,16 @@ const App: React.FC = () => {
   // Render gate
   if (showSplash) return <SplashScreen />;
   if (!firebaseUser) return <AuthScreen onLogin={handleLogin} onSignup={handleSignup} loading={authLoading} />;
-  if (isLoading || !activeUser) return <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white"><div className="flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /><p>Loading Journal Database...</p></div></div>;
+  if (isLoading) return <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white"><div className="flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /><p>Loading Journal Database...</p></div></div>;
+  if (loadError || !activeUser) return (
+    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white">
+      <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm">{loadError ?? 'Profile could not be loaded.'}</p>
+        <button onClick={() => { setLoadError(null); setIsLoading(true); dataService.loadUsers().then(u => setProfile(u[0] || null)).catch((e: any) => setLoadError(e?.message ?? 'Failed to connect.')).finally(() => setIsLoading(false)); }} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Retry</button>
+        <button onClick={handleLogout} className="text-sm text-zinc-400 hover:text-zinc-600">Sign out</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-200 font-sans selection:bg-indigo-500/30 transition-colors duration-300">
