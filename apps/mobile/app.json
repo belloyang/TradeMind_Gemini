@@ -7,8 +7,17 @@
     "scheme": "trademind",
     "userInterfaceStyle": "automatic",
     "plugins": [],
-    "ios": {"supportsTablet": true},
-    "android": {"adaptiveIcon": {"foregroundImage": "./assets/adaptive-icon.png","backgroundColor": "#ffffff"}},
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.trademind"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.anonymous.trademind"
+    },
     "extra": {
       "eas": {
         "projectId": "REPLACE_ME"
