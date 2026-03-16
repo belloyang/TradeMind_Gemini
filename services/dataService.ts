@@ -21,11 +21,28 @@ async function ensureAuth() {
   return user;
 }
 
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+async function retryGet<T>(fn: () => Promise<T>, retries = 4, baseMs = 400): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const isOffline = err?.code === 'failed-precondition' || err?.message?.includes('offline');
+      if (!isOffline) throw err;
+      await delay(baseMs * 2 ** i);
+    }
+  }
+  throw lastErr;
+}
+
 async function loadTrades(uid: string): Promise<Trade[]> {
   const tradesRef = collection(doc(db, USERS, uid), TRADES);
   let snapshot;
   try {
-    snapshot = await getDocs(tradesRef);
+    snapshot = await retryGet(() => getDocs(tradesRef));
   } catch {
     try {
       snapshot = await getDocsFromCache(tradesRef);
@@ -42,7 +59,7 @@ async function loadArchives(uid: string): Promise<ArchivedSession[]> {
   const archivesRef = collection(doc(db, USERS, uid), ARCHIVES);
   let snapshot;
   try {
-    snapshot = await getDocs(archivesRef);
+    snapshot = await retryGet(() => getDocs(archivesRef));
   } catch {
     try {
       snapshot = await getDocsFromCache(archivesRef);
@@ -97,9 +114,9 @@ export const dataService = {
     const userRef = doc(db, USERS, user.uid);
     let snap;
     try {
-      snap = await getDoc(userRef);
+      snap = await retryGet(() => getDoc(userRef));
     } catch (err) {
-      // Offline or network failure: try cache
+      // Still failing after retries: try local cache
       try {
         snap = await getDocFromCache(userRef);
       } catch {

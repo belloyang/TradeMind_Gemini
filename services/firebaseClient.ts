@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,8 +13,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// Use single-tab manager to avoid the multi-tab IndexedDB election that
+// holds Firestore offline for several seconds after startup.
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager(null) }),
 });
 
 export const auth = getAuth(app);
