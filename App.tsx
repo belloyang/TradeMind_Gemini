@@ -97,7 +97,9 @@ const App: React.FC = () => {
   // Payment check
   useEffect(() => {
     if (paymentService.checkPaymentSuccess() && activeUser) {
-      updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' }));
+      void updateActiveUser(u => ({ ...u, subscriptionTier: 'pro' })).catch((e) => {
+        console.error('Failed to update user after payment success', e);
+      });
       window.history.replaceState({}, document.title, window.location.pathname);
       alert('Payment successful! Pro features unlocked.');
     }
