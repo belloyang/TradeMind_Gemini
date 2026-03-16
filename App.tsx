@@ -106,9 +106,24 @@ const App: React.FC = () => {
 
   const updateActiveUser = async (updater: (user: UserProfile) => UserProfile) => {
     if (!activeUser) return;
-    const updated = updater(activeUser);
+    const previous = activeUser;
+    const updated = updater(previous);
     setProfile(updated);
-    await dataService.saveUser(updated);
+    try {
+      await dataService.saveUser(updated);
+      setLoadError(null);
+    } catch (e) {
+      console.error('Failed to save profile', e);
+      setProfile(previous);
+      setLoadError('Failed to save changes to Firestore. Please try again.');
+      throw e;
+    }
+  };
+
+  const persistActiveUserUpdate = (updater: (user: UserProfile) => UserProfile) => {
+    void updateActiveUser(updater).catch(() => {
+      alert('Save failed. Please retry.');
+    });
   };
 
   const toggleTheme = () => setTheme(p => p === 'dark' ? 'light' : 'dark');
@@ -160,10 +175,10 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
-  const handleAddTrade = (newTrade: Trade) => updateActiveUser(u => ({ ...u, trades: [newTrade, ...u.trades] }));
-  const handleUpdateTrade = (updatedTrade: Trade) => updateActiveUser(u => ({ ...u, trades: u.trades.map(t => t.id === updatedTrade.id ? updatedTrade : t) }));
-  const handleDeleteTrade = (tradeId: string) => updateActiveUser(u => ({ ...u, trades: u.trades.filter(t => t.id !== tradeId) }));
-  const handleUpdateSettings = (newSettings: UserSettings) => updateActiveUser(u => ({ ...u, settings: newSettings }));
+  const handleAddTrade = (newTrade: Trade) => persistActiveUserUpdate(u => ({ ...u, trades: [newTrade, ...u.trades] }));
+  const handleUpdateTrade = (updatedTrade: Trade) => persistActiveUserUpdate(u => ({ ...u, trades: u.trades.map(t => t.id === updatedTrade.id ? updatedTrade : t) }));
+  const handleDeleteTrade = (tradeId: string) => persistActiveUserUpdate(u => ({ ...u, trades: u.trades.filter(t => t.id !== tradeId) }));
+  const handleUpdateSettings = (newSettings: UserSettings) => persistActiveUserUpdate(u => ({ ...u, settings: newSettings }));
 
   const handleResetAccount = (newCapital: number) => {
     if (!activeUser) return;
@@ -177,7 +192,7 @@ const App: React.FC = () => {
       tradeCount: activeUser.trades.length,
       trades: [...activeUser.trades]
     };
-    updateActiveUser(u => ({ ...u, archives: [archive, ...u.archives], trades: [], initialCapital: newCapital, startDate: new Date().toISOString() }));
+    persistActiveUserUpdate(u => ({ ...u, archives: [archive, ...u.archives], trades: [], initialCapital: newCapital, startDate: new Date().toISOString() }));
     setActiveTab('dashboard');
   };
 

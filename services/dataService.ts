@@ -15,6 +15,22 @@ const defaultSettings: UserSettings = {
   checklistConfig: []
 };
 
+// Remove any undefined fields before sending to Firestore
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  const cleaned: Record<string, any> = {};
+  Object.entries(obj).forEach(([k, v]) => {
+    if (v === undefined) return;
+    if (Array.isArray(v)) {
+      cleaned[k] = v.map(item => typeof item === 'object' && item !== null ? stripUndefined(item as any) : item);
+    } else if (v && typeof v === 'object' && !(v instanceof Date)) {
+      cleaned[k] = stripUndefined(v as any);
+    } else {
+      cleaned[k] = v;
+    }
+  });
+  return cleaned as T;
+};
+
 async function ensureAuth() {
   const user = auth.currentUser;
   if (!user) throw new Error('Not authenticated');
@@ -74,36 +90,46 @@ async function loadArchives(uid: string): Promise<ArchivedSession[]> {
 
 async function upsertTrades(uid: string, trades: Trade[]) {
   const tradesRef = collection(doc(db, USERS, uid), TRADES);
-  const existing = await getDocs(tradesRef);
   const batch = writeBatch(db);
   const incomingIds = new Set(trades.map(t => t.id));
 
   trades.forEach(t => {
     const ref = doc(tradesRef, t.id);
-    batch.set(ref, { ...t, updatedAt: serverTimestamp() });
+    batch.set(ref, { ...stripUndefined(t), updatedAt: serverTimestamp() });
   });
 
-  existing.docs.forEach(d => {
-    if (!incomingIds.has(d.id)) batch.delete(d.ref);
-  });
+  // Deletion sync requires a read; if that read fails we still persist incoming trades.
+  try {
+    const existing = await getDocs(tradesRef);
+    existing.docs.forEach(d => {
+      if (!incomingIds.has(d.id)) batch.delete(d.ref);
+    });
+  } catch (err) {
+    console.warn('Skipping stale-trade cleanup; persisting incoming trades only.', err);
+  }
 
   await batch.commit();
 }
 
 async function upsertArchives(uid: string, archives: ArchivedSession[]) {
   const archivesRef = collection(doc(db, USERS, uid), ARCHIVES);
-  const existing = await getDocs(archivesRef);
   const batch = writeBatch(db);
   const incomingIds = new Set(archives.map(a => a.id));
 
   archives.forEach(a => {
     const ref = doc(archivesRef, a.id);
-    batch.set(ref, { ...a, updatedAt: serverTimestamp() });
+    batch.set(ref, { ...stripUndefined(a), updatedAt: serverTimestamp() });
   });
 
-  existing.docs.forEach(d => {
-    if (!incomingIds.has(d.id)) batch.delete(d.ref);
-  });
+  // Deletion sync requires a read; if that read fails we still persist incoming archives.
+  try {
+    const existing = await getDocs(archivesRef);
+    existing.docs.forEach(d => {
+      if (!incomingIds.has(d.id)) batch.delete(d.ref);
+    });
+  } catch (err) {
+    console.warn('Skipping stale-archive cleanup; persisting incoming archives only.', err);
+  }
 
   await batch.commit();
 }
@@ -153,7 +179,7 @@ export const dataService = {
     const userRef = doc(db, USERS, user.uid);
 
     await setDoc(userRef, {
-      ...rest,
+      ...stripUndefined(rest),
       userId: user.uid,
       updatedAt: serverTimestamp(),
       createdAt: rest.startDate || serverTimestamp()
