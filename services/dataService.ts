@@ -178,12 +178,19 @@ export const dataService = {
     const { trades, archives, ...rest } = profile;
     const userRef = doc(db, USERS, user.uid);
 
-    await setDoc(userRef, {
+    const existingSnap = await getDoc(userRef);
+
+    const userData: any = {
       ...stripUndefined(rest),
       userId: user.uid,
-      updatedAt: serverTimestamp(),
-      createdAt: rest.startDate || serverTimestamp()
-    });
+      updatedAt: serverTimestamp()
+    };
+
+    if (!existingSnap.exists()) {
+      userData.createdAt = serverTimestamp();
+    }
+
+    await setDoc(userRef, userData, { merge: true });
 
     await upsertTrades(user.uid, trades || []);
     await upsertArchives(user.uid, archives || []);
@@ -192,6 +199,26 @@ export const dataService = {
   async deleteUser(userId: string): Promise<void> {
     const user = await ensureAuth();
     if (user.uid !== userId) throw new Error('Cannot delete another user');
+
+    // Explicitly delete subcollections since Firestore does not cascade deletes.
+    const tradesColRef = collection(db, USERS, userId, TRADES);
+    const archivesColRef = collection(db, USERS, userId, ARCHIVES);
+
+    const [tradesSnap, archivesSnap] = await Promise.all([
+      getDocs(tradesColRef),
+      getDocs(archivesColRef)
+    ]);
+
+    const batch = writeBatch(db);
+    tradesSnap.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    archivesSnap.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+
+    await batch.commit();
+
     await deleteDoc(doc(db, USERS, userId));
   },
 

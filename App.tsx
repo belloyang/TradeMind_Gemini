@@ -140,35 +140,41 @@ const App: React.FC = () => {
     const totalDiscipline = trades.reduce((s, t) => s + t.disciplineScore, 0);
     let peak = 0; let eq = 0; let maxDD = 0;
     const sorted = [...trades].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
-    sorted.forEach(t => { if (t.pnl) eq += t.pnl; if (eq > peak) peak = eq; const dd = peak - eq; if (dd > maxDD) maxDD = dd; });
+    sorted.forEach(t => { if (t.pnl !== undefined) eq += t.pnl; if (eq > peak) peak = eq; const dd = peak - eq; if (dd > maxDD) maxDD = dd; });
     return { totalTrades: trades.length, winRate, totalPnL, averagePnL: closed.length ? totalPnL / closed.length : 0, disciplineScore: trades.length ? totalDiscipline / trades.length : 0, maxDrawdown: maxDD };
   }, [activeUser]);
 
   // Handlers
   const handleLogin = async (email: string, password: string) => {
     setAuthLoading(true);
-    await authService.login(email, password);
-    setAuthLoading(false);
-    setActiveTab('dashboard');
+    try {
+      await authService.login(email, password);
+      setActiveTab('dashboard');
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleSignup = async (name: string, email: string, password: string, initialCapital: number) => {
     setAuthLoading(true);
-    const user = await authService.signup(email, password, name);
-    const newProfile: UserProfile = {
-      id: user.uid,
-      name,
-      initialCapital,
-      startDate: new Date().toISOString(),
-      trades: [],
-      archives: [],
-      settings: { defaultTargetPercent: 30, defaultStopLossPercent: 15, maxTradesPerDay: 5, maxRiskPerTradePercent: 4, checklistConfig: [] },
-      subscriptionTier: 'pro'
-    };
-    await dataService.saveUser(newProfile);
-    setProfile(newProfile);
-    setAuthLoading(false);
-    setActiveTab('dashboard');
+    try {
+      const user = await authService.signup(email, password, name);
+      const newProfile: UserProfile = {
+        id: user.uid,
+        name,
+        initialCapital,
+        startDate: new Date().toISOString(),
+        trades: [],
+        archives: [],
+        settings: { defaultTargetPercent: 30, defaultStopLossPercent: 15, maxTradesPerDay: 5, maxRiskPerTradePercent: 4, checklistConfig: [] },
+        subscriptionTier: 'pro'
+      };
+      await dataService.saveUser(newProfile);
+      setProfile(newProfile);
+      setActiveTab('dashboard');
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleLogout = async () => {
