@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 
 .firebase
+
+# Native mobile build output
+android/.gradle
+android/app/build
+android/build
+ios/App/App/public
+ios/App/build
+DerivedData
